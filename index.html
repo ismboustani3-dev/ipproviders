@@ -2,14 +2,17 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Fixed IP Checker</title>
+<title>Stable IP Checker</title>
+
 <style>
 body{font-family:Arial;background:#0b1220;color:white;padding:20px}
-.container{max-width:1200px;margin:auto}
+.container{max-width:1000px;margin:auto}
 textarea{width:100%;height:120px;padding:10px}
 button{padding:10px 14px;margin-top:10px;background:#3b82f6;color:white;border:none;border-radius:8px;cursor:pointer}
+
 table{width:100%;margin-top:15px;border-collapse:collapse}
-th,td{padding:10px;border-bottom:1px solid #1f2937;font-size:13px}
+td,th{padding:10px;border-bottom:1px solid #1f2937;font-size:13px}
+
 .success{color:#22c55e;font-weight:bold}
 .failed{color:#ef4444;font-weight:bold}
 </style>
@@ -19,13 +22,12 @@ th,td{padding:10px;border-bottom:1px solid #1f2937;font-size:13px}
 
 <div class="container">
 
-<h2>🚀 FIXED IP CHECKER</h2>
+<h2>⚡ STABLE IP CHECKER</h2>
 
 <textarea id="ips">8.8.8.8
-1.1.1.1
-104.26.10.78</textarea>
+1.1.1.1</textarea>
 
-<button onclick="run()">CHECK</button>
+<button onclick="run()">CHECK IPs</button>
 
 <table>
 <thead>
@@ -33,15 +35,10 @@ th,td{padding:10px;border-bottom:1px solid #1f2937;font-size:13px}
 <th>IP</th>
 <th>Status</th>
 <th>ISP</th>
-<th>Org</th>
-<th>ASN</th>
 <th>Country</th>
-<th>Region</th>
-<th>City</th>
 <th>Message</th>
 </tr>
 </thead>
-
 <tbody id="out"></tbody>
 </table>
 
@@ -49,21 +46,35 @@ th,td{padding:10px;border-bottom:1px solid #1f2937;font-size:13px}
 
 <script>
 
-async function fetchWithFallback(ip){
+// ⏱ timeout wrapper (important fix)
+function timeoutFetch(url, ms=5000){
+return Promise.race([
+fetch(url),
+new Promise((_,rej)=>setTimeout(()=>rej("timeout"),ms))
+]);
+}
 
-// API 1
+async function api1(ip){
 try{
-let r = await fetch("https://ipwho.is/"+ip);
+let r = await timeoutFetch("https://ipwho.is/"+ip);
 let d = await r.json();
 
 if(d && d.success){
-return build(ip,d);
+return {
+ip,
+status:"Success",
+isp:d.connection?.isp||"N/A",
+country:d.country||"",
+msg:"OK (ipwho)"
+};
 }
 }catch(e){}
+return null;
+}
 
-// API 2 fallback
+async function api2(ip){
 try{
-let r = await fetch("https://ipapi.co/"+ip+"/json/");
+let r = await timeoutFetch("https://ipapi.co/"+ip+"/json/");
 let d = await r.json();
 
 if(d && !d.error){
@@ -71,40 +82,31 @@ return {
 ip,
 status:"Success",
 isp:d.org||"N/A",
-org:d.org||"N/A",
-asn:d.asn||"N/A",
 country:d.country_name||"",
-region:d.region||"",
-city:d.city||"",
-msg:"OK (API2)"
+msg:"OK (ipapi)"
 };
 }
 }catch(e){}
+return null;
+}
 
+async function getIP(ip){
+
+// 1st try
+let r1 = await api1(ip);
+if(r1) return r1;
+
+// 2nd try
+let r2 = await api2(ip);
+if(r2) return r2;
+
+// real fail (not fake N/A)
 return {
 ip,
 status:"Failed",
-isp:"N/A",
-org:"N/A",
-asn:"N/A",
+isp:"No response",
 country:"",
-region:"",
-city:"",
-msg:"No data / blocked"
-};
-}
-
-function build(ip,d){
-return{
-ip,
-status:"Success",
-isp:d.connection?.isp||"N/A",
-org:d.connection?.org||"N/A",
-asn:d.connection?.asn||"N/A",
-country:d.country||"",
-region:d.region||"",
-city:d.city||"",
-msg:"OK"
+msg:"API blocked / timeout"
 };
 }
 
@@ -118,18 +120,14 @@ out.innerHTML="";
 
 for(let ip of ips){
 
-let r = await fetchWithFallback(ip);
+let r = await getIP(ip);
 
 out.innerHTML += `
 <tr>
 <td>${r.ip}</td>
 <td class="${r.status==="Success"?"success":"failed"}">${r.status}</td>
 <td>${r.isp}</td>
-<td>${r.org}</td>
-<td>${r.asn}</td>
 <td>${r.country}</td>
-<td>${r.region}</td>
-<td>${r.city}</td>
 <td>${r.msg}</td>
 </tr>`;
 }
