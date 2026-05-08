@@ -3,104 +3,155 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Advanced IP Checker</title>
+<title>IP Provider Checker</title>
 
 <style>
 
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial,sans-serif;
+}
+
 body{
-    font-family:Arial;
     background:#f3f4f6;
     padding:20px;
 }
 
 .container{
-    max-width:1500px;
+    max-width:1200px;
     margin:auto;
     background:white;
     padding:20px;
     border-radius:10px;
+    box-shadow:0 0 10px rgba(0,0,0,0.1);
+}
+
+h1{
+    margin-bottom:15px;
 }
 
 textarea{
     width:100%;
-    height:220px;
-    padding:10px;
+    height:200px;
     border:1px solid #ccc;
-    border-radius:5px;
+    border-radius:8px;
+    padding:12px;
+    resize:none;
+    font-size:14px;
+}
+
+.buttons{
+    margin-top:15px;
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    align-items:center;
 }
 
 button{
-    padding:10px 20px;
     border:none;
-    border-radius:5px;
+    padding:12px 22px;
+    border-radius:8px;
     cursor:pointer;
-    margin-top:15px;
+    font-weight:bold;
 }
 
-.check{
+.check-btn{
     background:#2563eb;
     color:white;
 }
 
-.download{
+.csv-btn{
     background:#111827;
     color:white;
-    margin-left:10px;
 }
 
-input{
-    padding:10px;
-    border:1px solid #ccc;
-    border-radius:5px;
-    margin-top:15px;
-    width:300px;
+.clear-btn{
+    background:#dc2626;
+    color:white;
+}
+
+.tip{
+    color:#666;
+    font-size:14px;
 }
 
 .progress-container{
-    width:100%;
-    height:25px;
-    background:#ddd;
-    border-radius:30px;
     margin-top:20px;
-    overflow:hidden;
+    display:none;
 }
 
 .progress-bar{
+    width:100%;
+    height:24px;
+    background:#ddd;
+    border-radius:30px;
+    overflow:hidden;
+}
+
+.progress{
     height:100%;
     width:0%;
     background:#2563eb;
-    transition:0.2s;
-    text-align:center;
-    color:white;
-    line-height:25px;
-    font-size:13px;
+    transition:0.3s;
+}
+
+.progress-text{
+    margin-top:8px;
+    font-size:14px;
 }
 
 .stats{
     margin-top:20px;
-    padding:15px;
-    background:#f9fafb;
-    border-radius:8px;
-    border:1px solid #ddd;
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:15px;
+}
+
+.card{
+    background:#111827;
+    color:white;
+    padding:18px;
+    border-radius:10px;
+}
+
+.card h3{
+    color:#9ca3af;
+    margin-bottom:10px;
+    font-size:14px;
+}
+
+.card p{
+    font-size:28px;
+    font-weight:bold;
+}
+
+.table-container{
+    margin-top:25px;
+    overflow-x:auto;
 }
 
 table{
     width:100%;
     border-collapse:collapse;
-    margin-top:25px;
 }
 
-th{
-    background:#111827;
+thead{
+    background:#0f172a;
     color:white;
-    padding:12px;
-    text-align:left;
 }
 
-td{
-    padding:10px;
-    border-bottom:1px solid #ddd;
+th, td{
+    padding:14px;
+    border-bottom:1px solid #e5e7eb;
+    text-align:left;
+    font-size:14px;
+}
+
+tbody tr:hover{
+    background:#f9fafb;
 }
 
 .success{
@@ -108,64 +159,70 @@ td{
     font-weight:bold;
 }
 
-.error{
+.failed{
     color:red;
     font-weight:bold;
 }
 
-.box{
-    padding:10px;
-    border:1px solid #ddd;
-    border-radius:6px;
-    background:white;
-    margin-top:10px;
+.footer{
+    margin-top:20px;
+    text-align:center;
+    color:#666;
 }
 
 </style>
-</head>
 
+</head>
 <body>
 
 <div class="container">
 
-    <h1>Advanced IP Provider Checker</h1>
+    <h1>IP Provider Checker</h1>
 
-    <textarea
-        id="ips"
-        placeholder="1.1.1.1&#10;8.8.8.8"
-    ></textarea>
+    <p style="margin-bottom:10px;color:#555;">
+        Paste IP addresses (one per line)
+    </p>
 
-    <br>
+    <textarea id="ipInput">
+54.38.193.115
+54.37.82.44
+37.123.98.2
+104.206.148.58
+192.99.198.53
+170.130.202.238
+51.81.187.39
+5.135.109.51
+51.195.146.50
+104.206.108.50
+    </textarea>
 
-    <button
-        class="check"
-        onclick="checkIPs()"
-    >
-        Start Check
-    </button>
+    <div class="buttons">
 
-    <button
-        class="download"
-        onclick="downloadCSV()"
-    >
-        Download CSV
-    </button>
+        <button class="check-btn" onclick="checkIPs()">
+            Check
+        </button>
 
-    <br>
+        <button class="csv-btn" onclick="downloadCSV()">
+            Download CSV
+        </button>
 
-    <input
-        type="text"
-        id="search"
-        placeholder="Search provider / country / region"
-        onkeyup="filterResults()"
-    >
+        <button class="clear-btn" onclick="clearResults()">
+            Clear
+        </button>
 
-    <div class="progress-container">
+        <span class="tip">
+            Tip: You can paste comma-separated IPs too.
+        </span>
 
-        <div
-            class="progress-bar"
-            id="progressBar"
-        >
+    </div>
+
+    <div class="progress-container" id="progressContainer">
+
+        <div class="progress-bar">
+            <div class="progress" id="progress"></div>
+        </div>
+
+        <div class="progress-text" id="progressText">
             0%
         </div>
 
@@ -173,267 +230,213 @@ td{
 
     <div class="stats">
 
-        <p>
-            Checked:
-            <span id="checked">0</span>
-        </p>
+        <div class="card">
+            <h3>Total IPs</h3>
+            <p id="totalIPs">0</p>
+        </div>
 
-        <p>
-            Success:
-            <span id="success">0</span>
-        </p>
+        <div class="card">
+            <h3>Success</h3>
+            <p id="successIPs">0</p>
+        </div>
 
-        <p>
-            Failed:
-            <span id="failed">0</span>
-        </p>
+        <div class="card">
+            <h3>Failed</h3>
+            <p id="failedIPs">0</p>
+        </div>
+
+        <div class="card">
+            <h3>Providers</h3>
+            <p id="providersCount">0</p>
+        </div>
 
     </div>
 
-    <table>
+    <div class="table-container">
 
-        <thead>
+        <table>
 
-            <tr>
-                <th>IP</th>
-                <th>Status</th>
-                <th>Provider</th>
-                <th>Country</th>
-                <th>Region</th>
-                <th>City</th>
-            </tr>
+            <thead>
+                <tr>
+                    <th>IP</th>
+                    <th>Status</th>
+                    <th>ISP</th>
+                    <th>Organization</th>
+                    <th>ASN</th>
+                    <th>Country</th>
+                    <th>Region</th>
+                    <th>City</th>
+                </tr>
+            </thead>
 
-        </thead>
+            <tbody id="resultsBody"></tbody>
 
-        <tbody id="tbody"></tbody>
+        </table>
 
-    </table>
+    </div>
+
+    <div class="footer">
+        @By WMN-3
+    </div>
 
 </div>
 
 <script>
 
-let results = [];
+let allResults = [];
 
 async function checkIPs(){
 
-    const ips = document
-        .getElementById("ips")
-        .value
-        .split(/\n|,/)
-        .map(x => x.trim())
-        .filter(x => x);
+    const input = document.getElementById("ipInput").value;
 
-    if(!ips.length){
+    const ips = input
+        .replace(/,/g,"\n")
+        .split("\n")
+        .map(ip => ip.trim())
+        .filter(ip => ip !== "");
 
-        alert("Paste IPs");
+    const tbody = document.getElementById("resultsBody");
 
-        return;
-    }
+    tbody.innerHTML = "";
 
-    results = [];
+    allResults = [];
 
-    document.getElementById("tbody").innerHTML = "";
-
-    let checked = 0;
     let success = 0;
     let failed = 0;
 
-    updateStats(
-        checked,
-        success,
-        failed
-    );
+    let providers = new Set();
 
-    updateProgress(
-        0
-    );
+    document.getElementById("progressContainer").style.display = "block";
 
-    const concurrency = 15;
+    for(let i = 0; i < ips.length; i++){
 
-    let index = 0;
+        const ip = ips[i];
 
-    async function worker(){
+        try{
 
-        while(index < ips.length){
+            // FREE API
+            const response = await fetch(`https://ipwhois.app/json/${ip}`);
 
-            const currentIndex = index++;
+            const data = await response.json();
 
-            const ip = ips[currentIndex];
+            if(data.success !== false){
 
-            try{
+                success++;
 
-                const response = await fetch(
-                    `https://ip-api.com/json/${ip}?fields=status,country,regionName,city,isp,query`
-                );
+                providers.add(data.isp || "Unknown");
 
-                const data = await response.json();
+                const result = {
 
-                checked++;
+                    ip: ip,
+                    status: "Success",
+                    isp: data.isp || "N/A",
+                    org: data.org || "N/A",
+                    asn: data.asn || "N/A",
+                    country: data.country || "N/A",
+                    region: data.region || "N/A",
+                    city: data.city || "N/A"
 
-                if(data.status === "success"){
+                };
 
-                    success++;
+                allResults.push(result);
 
-                    const row = {
+                tbody.innerHTML += `
 
-                        ip:data.query,
-                        status:"Success",
-                        provider:data.isp,
-                        country:data.country,
-                        region:data.regionName,
-                        city:data.city
-                    };
+                    <tr>
 
-                    results.push(row);
+                        <td>${result.ip}</td>
 
-                    addRow(row);
+                        <td class="success">
+                            ${result.status}
+                        </td>
 
-                }else{
+                        <td>${result.isp}</td>
 
-                    failed++;
+                        <td>${result.org}</td>
 
-                    addErrorRow(ip);
+                        <td>${result.asn}</td>
 
-                }
+                        <td>${result.country}</td>
 
-            }catch(err){
+                        <td>${result.region}</td>
 
-                checked++;
+                        <td>${result.city}</td>
+
+                    </tr>
+
+                `;
+
+            }else{
+
                 failed++;
 
-                addErrorRow(ip);
+                tbody.innerHTML += `
+
+                    <tr>
+
+                        <td>${ip}</td>
+
+                        <td class="failed">
+                            Failed
+                        </td>
+
+                        <td colspan="6">
+                            Invalid IP or API Error
+                        </td>
+
+                    </tr>
+
+                `;
             }
 
-            updateStats(
-                checked,
-                success,
-                failed
-            );
+        }catch(error){
 
-            updateProgress(
-                Math.floor(
-                    (checked / ips.length) * 100
-                )
-            );
+            failed++;
+
+            tbody.innerHTML += `
+
+                <tr>
+
+                    <td>${ip}</td>
+
+                    <td class="failed">
+                        Failed
+                    </td>
+
+                    <td colspan="6">
+                        Request Failed
+                    </td>
+
+                </tr>
+
+            `;
         }
+
+        let percent = Math.round(((i + 1) / ips.length) * 100);
+
+        document.getElementById("progress").style.width = percent + "%";
+
+        document.getElementById("progressText").innerText =
+            percent + "% Completed";
+
+        document.getElementById("totalIPs").innerText =
+            ips.length;
+
+        document.getElementById("successIPs").innerText =
+            success;
+
+        document.getElementById("failedIPs").innerText =
+            failed;
+
+        document.getElementById("providersCount").innerText =
+            providers.size;
+
     }
-
-    const workers = [];
-
-    for(let i=0;i<concurrency;i++){
-
-        workers.push(worker());
-
-    }
-
-    await Promise.all(workers);
-}
-
-function addRow(row){
-
-    document.getElementById("tbody").innerHTML += `
-
-        <tr>
-
-            <td>${row.ip}</td>
-
-            <td class="success">
-                Success
-            </td>
-
-            <td>${row.provider}</td>
-
-            <td>${row.country}</td>
-
-            <td>${row.region}</td>
-
-            <td>${row.city}</td>
-
-        </tr>
-
-    `;
-}
-
-function addErrorRow(ip){
-
-    document.getElementById("tbody").innerHTML += `
-
-        <tr>
-
-            <td>${ip}</td>
-
-            <td class="error">
-                Failed
-            </td>
-
-            <td colspan="4">
-                Error
-            </td>
-
-        </tr>
-
-    `;
-}
-
-function updateProgress(percent){
-
-    const bar =
-        document.getElementById("progressBar");
-
-    bar.style.width =
-        percent + "%";
-
-    bar.innerText =
-        percent + "%";
-}
-
-function updateStats(
-    checked,
-    success,
-    failed
-){
-
-    document.getElementById("checked")
-        .innerText = checked;
-
-    document.getElementById("success")
-        .innerText = success;
-
-    document.getElementById("failed")
-        .innerText = failed;
-}
-
-function filterResults(){
-
-    const value =
-        document.getElementById("search")
-        .value
-        .toLowerCase();
-
-    const rows =
-        document.querySelectorAll("#tbody tr");
-
-    rows.forEach(row => {
-
-        if(
-            row.innerText
-            .toLowerCase()
-            .includes(value)
-        ){
-
-            row.style.display = "";
-
-        }else{
-
-            row.style.display = "none";
-        }
-    });
 }
 
 function downloadCSV(){
 
-    if(!results.length){
+    if(allResults.length === 0){
 
         alert("No results");
 
@@ -441,39 +444,52 @@ function downloadCSV(){
     }
 
     let csv =
-`IP,Status,Provider,Country,Region,City\n`;
+`IP,Status,ISP,Organization,ASN,Country,Region,City\n`;
 
-    results.forEach(r => {
+    allResults.forEach(r => {
 
         csv +=
-`${r.ip},${r.status},${r.provider},${r.country},${r.region},${r.city}\n`;
+`"${r.ip}","${r.status}","${r.isp}","${r.org}","${r.asn}","${r.country}","${r.region}","${r.city}"\n`;
 
     });
 
-    const blob = new Blob(
-        [csv],
-        {
-            type:"text/csv"
-        }
-    );
+    const blob = new Blob([csv], {
+        type:'text/csv'
+    });
 
-    const url =
-        URL.createObjectURL(blob);
+    const url = URL.createObjectURL(blob);
 
-    const a =
-        document.createElement("a");
+    const a = document.createElement("a");
 
     a.href = url;
 
-    a.download =
-        "results.csv";
+    a.download = "ip_results.csv";
 
     a.click();
 
     URL.revokeObjectURL(url);
 }
 
+function clearResults(){
+
+    document.getElementById("resultsBody").innerHTML = "";
+
+    document.getElementById("progress").style.width = "0%";
+
+    document.getElementById("progressText").innerText = "0%";
+
+    document.getElementById("totalIPs").innerText = "0";
+
+    document.getElementById("successIPs").innerText = "0";
+
+    document.getElementById("failedIPs").innerText = "0";
+
+    document.getElementById("providersCount").innerText = "0";
+
+    allResults = [];
+}
+
 </script>
 
 </body>
-</html>	
+</html>
