@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>ULTRA IP Provider Checker PRO</title>
+<title>ULTRA IP Provider Checker FIXED</title>
 
 <style>
 
@@ -58,6 +58,7 @@ button{
     border-radius:6px;
     cursor:pointer;
     font-weight:bold;
+    transition:0.2s;
 }
 
 #checkBtn{
@@ -65,9 +66,17 @@ button{
     color:white;
 }
 
+#checkBtn:hover{
+    background:#1d4ed8;
+}
+
 #downloadBtn{
     background:#111827;
     color:white;
+}
+
+#downloadBtn:hover{
+    background:black;
 }
 
 .stats{
@@ -125,10 +134,14 @@ thead{
     color:white;
 }
 
-th,td{
+th{
+    padding:14px;
+    text-align:left;
+}
+
+td{
     padding:12px;
     border-bottom:1px solid #ddd;
-    text-align:left;
 }
 
 .success{color:green;font-weight:bold;}
@@ -153,14 +166,12 @@ th,td{
 
 <div class="container">
 
-<h1>ULTRA IP Provider Checker PRO</h1>
+<h1>ULTRA IP Provider Checker FIXED</h1>
 
 <textarea id="ipInput">8.8.8.8
 1.1.1.1
 104.26.10.78
-172.67.73.21
-151.101.1.69
-54.38.193.115</textarea>
+172.67.73.21</textarea>
 
 <div class="controls">
 <button id="checkBtn">Check IPs</button>
@@ -190,7 +201,6 @@ th,td{
 </div>
 
 <table>
-
 <thead>
 <tr>
 <th>IP</th>
@@ -201,9 +211,7 @@ th,td{
 <th>City</th>
 </tr>
 </thead>
-
 <tbody id="results"></tbody>
-
 </table>
 
 </div>
@@ -227,52 +235,12 @@ const searchInput = document.getElementById("searchInput");
 let csvRows = [];
 const cache = {};
 
-// ================= SAVE SYSTEM =================
-function saveData(){
-localStorage.setItem("ip_results", JSON.stringify(csvRows));
-}
-
-function loadData(){
-let saved = localStorage.getItem("ip_results");
-if(saved){
-csvRows = JSON.parse(saved);
-renderTable();
-}
-}
-
-function renderTable(){
-
-results.innerHTML = "";
-
-csvRows.forEach(data=>{
-
-const row = document.createElement("tr");
-
-row.innerHTML = `
-<td>${data.ip}</td>
-<td class="${data.status==="Success"?"success":"failed"}">${data.status}</td>
-<td>${data.provider}</td>
-<td>${data.country}</td>
-<td>${data.region}</td>
-<td>${data.city}</td>
-`;
-
-results.appendChild(row);
-
-});
-
-totalEl.textContent = csvRows.length;
-successEl.textContent = csvRows.filter(x=>x.status==="Success").length;
-failedEl.textContent = csvRows.filter(x=>x.status==="Failed").length;
-
-}
-
-// ================= VALIDATION =================
+// validate IP
 function validateIP(ip){
 return /^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(ip);
 }
 
-// ================= FETCH =================
+// safe fetch
 async function fetchAPI(url){
 try{
 const controller = new AbortController();
@@ -282,6 +250,7 @@ const res = await fetch(url,{signal:controller.signal});
 clearTimeout(timeout);
 
 if(!res.ok) return null;
+
 return await res.json();
 
 }catch{
@@ -289,7 +258,7 @@ return null;
 }
 }
 
-// ================= IP DATA =================
+// MAIN IP DATA
 async function getIPData(ip){
 
 if(cache[ip]) return cache[ip];
@@ -298,7 +267,8 @@ if(cache[ip]) return cache[ip];
 let data = await fetchAPI(`https://ipwho.is/${ip}`);
 
 if(data && data.success === true){
-return cache[ip] = {
+
+const result = {
 ip,
 status:"Success",
 provider:data.connection?.isp || "Unknown",
@@ -306,13 +276,17 @@ country:data.country || "",
 region:data.region || "",
 city:data.city || ""
 };
+
+cache[ip]=result;
+return result;
 }
 
-// API 2
+// API 2 fallback
 data = await fetchAPI(`https://ipapi.co/${ip}/json/`);
 
 if(data && !data.error){
-return cache[ip] = {
+
+const result = {
 ip,
 status:"Success",
 provider:data.org || "Unknown",
@@ -320,20 +294,41 @@ country:data.country_name || "",
 region:data.region || "",
 city:data.city || ""
 };
+
+cache[ip]=result;
+return result;
 }
 
-// FAIL
+// API 3 fallback
+data = await fetchAPI(`https://ipinfo.io/${ip}/json`);
+
+if(data && !data.bogon){
+
+const result = {
+ip,
+status:"Success",
+provider:data.org || "Unknown",
+country:data.country || "",
+region:data.region || "",
+city:data.city || ""
+};
+
+cache[ip]=result;
+return result;
+}
+
+// REAL fail (no fake N/A)
 return {
 ip,
 status:"Failed",
-provider:"No Data",
+provider:"No data available",
 country:"-",
 region:"-",
 city:"-"
 };
 }
 
-// ================= BATCH =================
+// batch processor
 async function processBatch(batch){
 
 return await Promise.allSettled(
@@ -357,7 +352,7 @@ return await getIPData(ip);
 
 }
 
-// ================= MAIN =================
+// MAIN BUTTON
 checkBtn.addEventListener("click", async ()=>{
 
 results.innerHTML="";
@@ -377,6 +372,7 @@ let processed=0;
 const providers={};
 const regions={};
 
+// loading rows
 ips.forEach(ip=>{
 const row=document.createElement("tr");
 row.id="row-"+ip.replaceAll(".","-");
@@ -405,7 +401,8 @@ const data = result.status==="fulfilled"
 
 processed++;
 
-progressBar.style.width=((processed/ips.length)*100)+"%";
+progressBar.style.width =
+((processed/ips.length)*100)+"%";
 
 const row=document.getElementById("row-"+data.ip.replaceAll(".","-"));
 
@@ -430,8 +427,6 @@ csvRows.push(data);
 
 });
 
-saveData();
-
 successEl.textContent=success;
 failedEl.textContent=failed;
 
@@ -452,15 +447,13 @@ d.innerText=r+": "+regions[r];
 regionsDiv.appendChild(d);
 }
 
-saveData();
-
 });
 
-// ================= DOWNLOAD =================
+// CSV
 document.getElementById("downloadBtn").addEventListener("click",()=>{
 
 if(!csvRows.length){
-alert("No Results");
+alert("No data");
 return;
 }
 
@@ -472,14 +465,13 @@ csv+=`${r.ip},${r.status},${r.provider},${r.country},${r.region},${r.city}\n`;
 
 let blob=new Blob([csv],{type:"text/csv"});
 let a=document.createElement("a");
-
 a.href=URL.createObjectURL(blob);
 a.download="ip_results.csv";
 a.click();
 
 });
 
-// ================= SEARCH =================
+// search
 searchInput.addEventListener("keyup",()=>{
 
 let val=searchInput.value.toLowerCase();
@@ -489,9 +481,6 @@ row.style.display=row.innerText.toLowerCase().includes(val)?"":"none";
 });
 
 });
-
-// ================= INIT =================
-loadData();
 
 </script>
 
