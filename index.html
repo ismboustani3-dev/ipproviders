@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Advanced IP Provider Checker</title>
 
 <style>
@@ -34,13 +35,14 @@ h1{
 }
 
 textarea{
-    width:300px;
-    height:170px;
+    width:320px;
+    height:180px;
     border:2px solid #111827;
     border-radius:6px;
     padding:10px;
     resize:none;
     font-size:15px;
+    outline:none;
 }
 
 .buttons{
@@ -55,6 +57,7 @@ button{
     border-radius:6px;
     font-weight:bold;
     cursor:pointer;
+    transition:0.2s;
 }
 
 #checkBtn{
@@ -62,9 +65,17 @@ button{
     color:white;
 }
 
+#checkBtn:hover{
+    background:#1d4ed8;
+}
+
 #downloadBtn{
     background:#111827;
     color:white;
+}
+
+#downloadBtn:hover{
+    background:black;
 }
 
 .stats{
@@ -143,12 +154,13 @@ td{
 
     <h1>IP Provider Checker</h1>
 
-    <textarea id="ipInput">
+    <textarea id="ipInput" placeholder="One IP per line">
 8.8.8.8
 1.1.1.1
 104.26.10.78
 172.67.73.21
 151.101.1.69
+54.38.193.115
     </textarea>
 
     <div class="buttons">
@@ -207,53 +219,94 @@ let csvRows = [];
 
 function validateIP(ip){
 
-    const regex = /^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    const regex =
+    /^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
 
     return regex.test(ip);
 }
 
-async function getIPData(ip){
+async function fetchFromAPI(url){
 
     try{
 
-        // FREE API
-        const response = await fetch("https://ipapi.co/" + ip + "/json/");
+        const controller = new AbortController();
 
-        const data = await response.json();
+        const timeout =
+            setTimeout(() => controller.abort(), 5000);
 
-        // detect invalid
-        if(data.error || data.reason){
+        const response = await fetch(url,{
+            signal:controller.signal
+        });
 
-            return {
-                ip: ip,
-                status: "Failed",
-                provider: "Invalid IP",
-                country: "",
-                region: "",
-                city: ""
-            };
-        }
+        clearTimeout(timeout);
 
-        return {
-            ip: ip,
-            status: "Success",
-            provider: data.org || "Unknown",
-            country: data.country_name || "",
-            region: data.region || "",
-            city: data.city || ""
-        };
+        return await response.json();
 
-    }catch(e){
+    }catch(err){
+
+        return null;
+    }
+}
+
+async function getIPData(ip){
+
+    // API 1
+    let data =
+        await fetchFromAPI(`https://ipwho.is/${ip}`);
+
+    if(data && data.success !== false){
 
         return {
-            ip: ip,
-            status: "Failed",
-            provider: "Fetch Error",
-            country: "",
-            region: "",
-            city: ""
+            ip:ip,
+            status:"Success",
+            provider:data.connection?.isp || "Unknown",
+            country:data.country || "",
+            region:data.region || "",
+            city:data.city || ""
         };
     }
+
+    // API 2
+    data =
+        await fetchFromAPI(`https://ipapi.co/${ip}/json/`);
+
+    if(data && !data.error){
+
+        return {
+            ip:ip,
+            status:"Success",
+            provider:data.org || "Unknown",
+            country:data.country_name || "",
+            region:data.region || "",
+            city:data.city || ""
+        };
+    }
+
+    // API 3
+    data =
+        await fetchFromAPI(`https://ipinfo.io/${ip}/json`);
+
+    if(data){
+
+        return {
+            ip:ip,
+            status:"Success",
+            provider:data.org || "Unknown",
+            country:data.country || "",
+            region:data.region || "",
+            city:data.city || ""
+        };
+    }
+
+    // FAILED
+    return {
+        ip:ip,
+        status:"Failed",
+        provider:"Fetch Error",
+        country:"",
+        region:"",
+        city:""
+    };
 }
 
 checkBtn.addEventListener("click", async ()=>{
@@ -264,8 +317,8 @@ checkBtn.addEventListener("click", async ()=>{
 
     csvRows = [];
 
-    const ips = document
-        .getElementById("ipInput")
+    const ips =
+        document.getElementById("ipInput")
         .value
         .split("\n")
         .map(ip => ip.trim())
@@ -279,13 +332,16 @@ checkBtn.addEventListener("click", async ()=>{
     const providers = {};
     const regions = {};
 
-    for(const ip of ips){
+    // create loading rows
+    ips.forEach(ip=>{
 
         const row = document.createElement("tr");
 
+        row.id = "row-" + ip.replaceAll(".","-");
+
         row.innerHTML = `
             <td>${ip}</td>
-            <td class="loading">Loading...</td>
+            <td class="loading">Checking...</td>
             <td></td>
             <td></td>
             <td></td>
@@ -293,24 +349,35 @@ checkBtn.addEventListener("click", async ()=>{
         `;
 
         results.appendChild(row);
+    });
+
+    // PARALLEL CHECK
+    const promises = ips.map(async ip=>{
 
         if(!validateIP(ip)){
 
-            row.innerHTML = `
-                <td>${ip}</td>
-                <td class="failed">Failed</td>
-                <td>Invalid Format</td>
-                <td></td>
-                <td></td>
-                <td></td>
-            `;
-
-            failed++;
-            failedEl.textContent = failed;
-            continue;
+            return {
+                ip:ip,
+                status:"Failed",
+                provider:"Invalid Format",
+                country:"",
+                region:"",
+                city:""
+            };
         }
 
-        const data = await getIPData(ip);
+        return await getIPData(ip);
+
+    });
+
+    const allResults = await Promise.all(promises);
+
+    allResults.forEach(data=>{
+
+        const row =
+            document.getElementById(
+                "row-" + data.ip.replaceAll(".","-")
+            );
 
         if(data.status === "Success"){
 
@@ -319,8 +386,11 @@ checkBtn.addEventListener("click", async ()=>{
             providers[data.provider] =
                 (providers[data.provider] || 0) + 1;
 
-            regions[data.region] =
-                (regions[data.region] || 0) + 1;
+            if(data.region){
+
+                regions[data.region] =
+                    (regions[data.region] || 0) + 1;
+            }
 
         }else{
 
@@ -329,9 +399,17 @@ checkBtn.addEventListener("click", async ()=>{
 
         row.innerHTML = `
             <td>${data.ip}</td>
-            <td class="${data.status === "Success" ? "success" : "failed"}">
+
+            <td class="${
+                data.status === "Success"
+                ? "success"
+                : "failed"
+            }">
+
                 ${data.status}
+
             </td>
+
             <td>${data.provider}</td>
             <td>${data.country}</td>
             <td>${data.region}</td>
@@ -340,14 +418,16 @@ checkBtn.addEventListener("click", async ()=>{
 
         csvRows.push(data);
 
-        successEl.textContent = success;
-        failedEl.textContent = failed;
-    }
+    });
 
-    // providers
+    successEl.textContent = success;
+    failedEl.textContent = failed;
+
+    // providers badges
     for(let provider in providers){
 
-        const div = document.createElement("div");
+        const div =
+            document.createElement("div");
 
         div.className = "badge";
 
@@ -357,10 +437,11 @@ checkBtn.addEventListener("click", async ()=>{
         providersDiv.appendChild(div);
     }
 
-    // regions
+    // regions badges
     for(let region in regions){
 
-        const div = document.createElement("div");
+        const div =
+            document.createElement("div");
 
         div.className = "badge";
 
@@ -384,7 +465,7 @@ document.getElementById("downloadBtn")
     let csv =
         "IP,Status,Provider,Country,Region,City\n";
 
-    csvRows.forEach(row => {
+    csvRows.forEach(row=>{
 
         csv +=
         `${row.ip},${row.status},${row.provider},${row.country},${row.region},${row.city}\n`;
@@ -401,6 +482,7 @@ document.getElementById("downloadBtn")
         document.createElement("a");
 
     a.href = url;
+
     a.download = "ip_results.csv";
 
     a.click();
