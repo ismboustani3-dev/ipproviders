@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>IP Checker</title>
+<title>Advanced IP Checker</title>
 
 <style>
 
@@ -15,7 +15,7 @@ body{
 }
 
 .container{
-    max-width:1450px;
+    max-width:1500px;
     margin:auto;
     background:white;
     padding:20px;
@@ -32,10 +32,10 @@ textarea{
 
 button{
     padding:10px 20px;
-    margin-top:15px;
     border:none;
     border-radius:5px;
     cursor:pointer;
+    margin-top:15px;
 }
 
 .check{
@@ -47,6 +47,42 @@ button{
     background:#111827;
     color:white;
     margin-left:10px;
+}
+
+input{
+    padding:10px;
+    border:1px solid #ccc;
+    border-radius:5px;
+    margin-top:15px;
+    width:300px;
+}
+
+.progress-container{
+    width:100%;
+    height:25px;
+    background:#ddd;
+    border-radius:30px;
+    margin-top:20px;
+    overflow:hidden;
+}
+
+.progress-bar{
+    height:100%;
+    width:0%;
+    background:#2563eb;
+    transition:0.2s;
+    text-align:center;
+    color:white;
+    line-height:25px;
+    font-size:13px;
+}
+
+.stats{
+    margin-top:20px;
+    padding:15px;
+    background:#f9fafb;
+    border-radius:8px;
+    border:1px solid #ddd;
 }
 
 table{
@@ -77,25 +113,12 @@ td{
     font-weight:bold;
 }
 
-.stats{
-    margin-top:25px;
-    padding:15px;
-    background:#f9fafb;
-    border:1px solid #ddd;
-    border-radius:8px;
-}
-
 .box{
     padding:10px;
     border:1px solid #ddd;
     border-radius:6px;
-    margin-top:10px;
     background:white;
-}
-
-.section-title{
-    margin-top:25px;
-    margin-bottom:10px;
+    margin-top:10px;
 }
 
 </style>
@@ -105,7 +128,7 @@ td{
 
 <div class="container">
 
-    <h1>IP Provider Checker</h1>
+    <h1>Advanced IP Provider Checker</h1>
 
     <textarea
         id="ips"
@@ -118,7 +141,7 @@ td{
         class="check"
         onclick="checkIPs()"
     >
-        Check
+        Start Check
     </button>
 
     <button
@@ -128,19 +151,31 @@ td{
         Download CSV
     </button>
 
-    <div id="loading"></div>
+    <br>
 
-    <div
-        class="stats"
-        id="stats"
-        style="display:none;"
+    <input
+        type="text"
+        id="search"
+        placeholder="Search provider / country / region"
+        onkeyup="filterResults()"
     >
 
-        <h2>Statistics</h2>
+    <div class="progress-container">
+
+        <div
+            class="progress-bar"
+            id="progressBar"
+        >
+            0%
+        </div>
+
+    </div>
+
+    <div class="stats">
 
         <p>
-            Total:
-            <span id="total">0</span>
+            Checked:
+            <span id="checked">0</span>
         </p>
 
         <p>
@@ -152,24 +187,6 @@ td{
             Failed:
             <span id="failed">0</span>
         </p>
-
-        <h3 class="section-title">
-            Providers Count
-        </h3>
-
-        <div id="providers"></div>
-
-        <h3 class="section-title">
-            Regions Count
-        </h3>
-
-        <div id="regions"></div>
-
-        <h3 class="section-title">
-            Regions By Provider
-        </h3>
-
-        <div id="providerRegions"></div>
 
     </div>
 
@@ -218,232 +235,199 @@ async function checkIPs(){
 
     document.getElementById("tbody").innerHTML = "";
 
-    document.getElementById("loading").innerHTML =
-        "Checking...";
-
+    let checked = 0;
     let success = 0;
     let failed = 0;
 
-    let providers = {};
-    let regions = {};
-    let providerRegions = {};
+    updateStats(
+        checked,
+        success,
+        failed
+    );
 
-    for(const ip of ips){
+    updateProgress(
+        0
+    );
 
-        try{
+    const concurrency = 15;
 
-            const response = await fetch(
-                `https://ip-api.com/json/${ip}?fields=status,country,regionName,city,isp,query`
-            );
+    let index = 0;
 
-            const data = await response.json();
+    async function worker(){
 
-            if(data.status === "success"){
+        while(index < ips.length){
 
-                success++;
+            const currentIndex = index++;
 
-                const provider =
-                    data.isp || "Unknown";
+            const ip = ips[currentIndex];
 
-                const region =
-                    data.regionName || "Unknown";
+            try{
 
-                providers[provider] =
-                    (providers[provider] || 0) + 1;
+                const response = await fetch(
+                    `https://ip-api.com/json/${ip}?fields=status,country,regionName,city,isp,query`
+                );
 
-                regions[region] =
-                    (regions[region] || 0) + 1;
+                const data = await response.json();
 
-                if(!providerRegions[provider]){
-                    providerRegions[provider] = {};
+                checked++;
+
+                if(data.status === "success"){
+
+                    success++;
+
+                    const row = {
+
+                        ip:data.query,
+                        status:"Success",
+                        provider:data.isp,
+                        country:data.country,
+                        region:data.regionName,
+                        city:data.city
+                    };
+
+                    results.push(row);
+
+                    addRow(row);
+
+                }else{
+
+                    failed++;
+
+                    addErrorRow(ip);
+
                 }
 
-                providerRegions[provider][region] =
-                    (providerRegions[provider][region] || 0) + 1;
+            }catch(err){
 
-                const row = {
-
-                    ip:data.query,
-                    status:"Success",
-                    provider:provider,
-                    country:data.country,
-                    region:region,
-                    city:data.city
-                };
-
-                results.push(row);
-
-                document.getElementById("tbody").innerHTML += `
-
-                    <tr>
-
-                        <td>${row.ip}</td>
-
-                        <td class="success">
-                            Success
-                        </td>
-
-                        <td>${row.provider}</td>
-
-                        <td>${row.country}</td>
-
-                        <td>${row.region}</td>
-
-                        <td>${row.city}</td>
-
-                    </tr>
-
-                `;
-
-            }else{
-
+                checked++;
                 failed++;
 
-                document.getElementById("tbody").innerHTML += `
-
-                    <tr>
-
-                        <td>${ip}</td>
-
-                        <td class="error">
-                            Failed
-                        </td>
-
-                        <td colspan="4">
-                            Invalid IP
-                        </td>
-
-                    </tr>
-
-                `;
+                addErrorRow(ip);
             }
 
-        }catch(err){
+            updateStats(
+                checked,
+                success,
+                failed
+            );
 
-            failed++;
-
-            document.getElementById("tbody").innerHTML += `
-
-                <tr>
-
-                    <td>${ip}</td>
-
-                    <td class="error">
-                        Error
-                    </td>
-
-                    <td colspan="4">
-                        Request failed
-                    </td>
-
-                </tr>
-
-            `;
+            updateProgress(
+                Math.floor(
+                    (checked / ips.length) * 100
+                )
+            );
         }
     }
 
-    document.getElementById("loading").innerHTML = "";
+    const workers = [];
 
-    document.getElementById("stats").style.display =
-        "block";
+    for(let i=0;i<concurrency;i++){
 
-    document.getElementById("total").innerText =
-        ips.length;
+        workers.push(worker());
 
-    document.getElementById("success").innerText =
-        success;
+    }
 
-    document.getElementById("failed").innerText =
-        failed;
-
-    showProviders(providers);
-
-    showRegions(regions);
-
-    showProviderRegions(providerRegions);
+    await Promise.all(workers);
 }
 
-function showProviders(providers){
+function addRow(row){
 
-    document.getElementById("providers").innerHTML = "";
+    document.getElementById("tbody").innerHTML += `
 
-    Object.entries(providers)
-    .sort((a,b) => b[1] - a[1])
-    .forEach(p => {
+        <tr>
 
-        document.getElementById("providers").innerHTML += `
+            <td>${row.ip}</td>
 
-            <div class="box">
+            <td class="success">
+                Success
+            </td>
 
-                <b>${p[0]}</b>
-                :
-                ${p[1]} IPs
+            <td>${row.provider}</td>
 
-            </div>
+            <td>${row.country}</td>
 
-        `;
-    });
+            <td>${row.region}</td>
+
+            <td>${row.city}</td>
+
+        </tr>
+
+    `;
 }
 
-function showRegions(regions){
+function addErrorRow(ip){
 
-    document.getElementById("regions").innerHTML = "";
+    document.getElementById("tbody").innerHTML += `
 
-    Object.entries(regions)
-    .sort((a,b) => b[1] - a[1])
-    .forEach(r => {
+        <tr>
 
-        document.getElementById("regions").innerHTML += `
+            <td>${ip}</td>
 
-            <div class="box">
+            <td class="error">
+                Failed
+            </td>
 
-                <b>${r[0]}</b>
-                :
-                ${r[1]} IPs
+            <td colspan="4">
+                Error
+            </td>
 
-            </div>
+        </tr>
 
-        `;
-    });
+    `;
 }
 
-function showProviderRegions(providerRegions){
+function updateProgress(percent){
 
-    document.getElementById("providerRegions").innerHTML = "";
+    const bar =
+        document.getElementById("progressBar");
 
-    Object.entries(providerRegions)
-    .forEach(provider => {
+    bar.style.width =
+        percent + "%";
 
-        let html = `
+    bar.innerText =
+        percent + "%";
+}
 
-            <div class="box">
+function updateStats(
+    checked,
+    success,
+    failed
+){
 
-                <h4>${provider[0]}</h4>
+    document.getElementById("checked")
+        .innerText = checked;
 
-        `;
+    document.getElementById("success")
+        .innerText = success;
 
-        Object.entries(provider[1])
-        .sort((a,b) => b[1] - a[1])
-        .forEach(region => {
+    document.getElementById("failed")
+        .innerText = failed;
+}
 
-            html += `
+function filterResults(){
 
-                <div style="margin-top:5px;">
+    const value =
+        document.getElementById("search")
+        .value
+        .toLowerCase();
 
-                    ${region[0]}
-                    :
-                    ${region[1]} IPs
+    const rows =
+        document.querySelectorAll("#tbody tr");
 
-                </div>
+    rows.forEach(row => {
 
-            `;
-        });
+        if(
+            row.innerText
+            .toLowerCase()
+            .includes(value)
+        ){
 
-        html += `</div>`;
+            row.style.display = "";
 
-        document.getElementById(
-            "providerRegions"
-        ).innerHTML += html;
+        }else{
+
+            row.style.display = "none";
+        }
     });
 }
 
@@ -481,7 +465,8 @@ function downloadCSV(){
 
     a.href = url;
 
-    a.download = "results.csv";
+    a.download =
+        "results.csv";
 
     a.click();
 
@@ -491,4 +476,4 @@ function downloadCSV(){
 </script>
 
 </body>
-</html>
+</html>	
