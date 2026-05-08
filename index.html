@@ -9,128 +9,123 @@
 <style>
 
 *{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
+margin:0;
+padding:0;
+box-sizing:border-box;
 }
 
 body{
-    font-family:Arial,sans-serif;
-    background:#f3f4f6;
-    padding:20px;
+font-family:Arial,sans-serif;
+background:#f3f4f6;
+padding:20px;
 }
 
 .container{
-    max-width:1700px;
-    margin:auto;
-    background:white;
-    padding:20px;
-    border-radius:12px;
-    box-shadow:0 2px 10px rgba(0,0,0,0.08);
+max-width:1700px;
+margin:auto;
+background:white;
+padding:20px;
+border-radius:12px;
+box-shadow:0 2px 10px rgba(0,0,0,0.08);
 }
 
 h1{
-    font-size:42px;
-    margin-bottom:20px;
+font-size:42px;
+margin-bottom:20px;
 }
 
 textarea{
-    width:340px;
-    height:200px;
-    border:2px solid #111827;
-    border-radius:8px;
-    padding:12px;
-    resize:none;
-    font-size:15px;
+width:340px;
+height:200px;
+border:2px solid #111827;
+border-radius:8px;
+padding:12px;
+resize:none;
+font-size:15px;
 }
 
 .controls{
-    display:flex;
-    gap:10px;
-    margin-top:15px;
-    flex-wrap:wrap;
+display:flex;
+gap:10px;
+margin-top:15px;
+flex-wrap:wrap;
 }
 
 button{
-    padding:12px 24px;
-    border:none;
-    border-radius:6px;
-    cursor:pointer;
-    font-weight:bold;
+padding:12px 24px;
+border:none;
+border-radius:6px;
+cursor:pointer;
+font-weight:bold;
 }
 
 #checkBtn{background:#2563eb;color:white;}
 #downloadBtn{background:#111827;color:white;}
 
 .search-box{
-    margin-top:20px;
+margin-top:20px;
 }
 
 .search-box input{
-    width:300px;
-    padding:12px;
-    border:1px solid #ccc;
-    border-radius:6px;
+width:300px;
+padding:12px;
+border:1px solid #ccc;
+border-radius:6px;
 }
 
 .stats{
-    margin-top:30px;
-    background:#fafafa;
-    border:1px solid #ddd;
-    border-radius:10px;
-    padding:20px;
+margin-top:30px;
+background:#fafafa;
+border:1px solid #ddd;
+border-radius:10px;
+padding:20px;
 }
 
-.stats p{
-    font-size:18px;
-    margin-bottom:10px;
+.badge{
+background:#111827;
+color:white;
+padding:6px 12px;
+border-radius:20px;
+font-size:13px;
+margin:5px;
+display:inline-block;
 }
 
 .progress-container{
-    width:100%;
-    height:24px;
-    background:#ddd;
-    border-radius:20px;
-    overflow:hidden;
-    margin-top:20px;
+width:100%;
+height:24px;
+background:#ddd;
+border-radius:20px;
+overflow:hidden;
+margin-top:20px;
 }
 
 .progress-bar{
-    height:100%;
-    width:0%;
-    background:#2563eb;
+height:100%;
+width:0%;
+background:#2563eb;
 }
 
 table{
-    width:100%;
-    border-collapse:collapse;
-    margin-top:30px;
+width:100%;
+border-collapse:collapse;
+margin-top:30px;
 }
 
 thead{
-    background:#0f172a;
-    color:white;
+background:#0f172a;
+color:white;
 }
 
 th,td{
-    padding:12px;
-    border-bottom:1px solid #ddd;
-    text-align:left;
+padding:12px;
+border-bottom:1px solid #ddd;
+text-align:left;
 }
 
 .success{color:green;font-weight:bold;}
 .failed{color:red;font-weight:bold;}
 .loading{color:#2563eb;font-weight:bold;}
-
-.badge{
-    background:#111827;
-    color:white;
-    padding:6px 12px;
-    border-radius:20px;
-    font-size:13px;
-    margin:5px;
-    display:inline-block;
-}
 
 </style>
 </head>
@@ -155,14 +150,31 @@ th,td{
 <input type="text" id="searchInput" placeholder="Search IP / ISP / Country">
 </div>
 
+<!-- ================= STATS PRO ================= -->
 <div class="stats">
-<p>Total: <span id="total">0</span></p>
-<p>Success: <span id="success">0</span></p>
-<p>Failed: <span id="failed">0</span></p>
+
+<h2>📊 Intelligence Stats</h2>
+
+<div>
+<span class="badge">Total: <span id="total">0</span></span>
+<span class="badge" style="background:green;">Success: <span id="success">0</span></span>
+<span class="badge" style="background:red;">Failed: <span id="failed">0</span></span>
+<span class="badge" style="background:#2563eb;">Rate: <span id="rate">0%</span></span>
+</div>
 
 <div class="progress-container">
 <div class="progress-bar" id="progressBar"></div>
 </div>
+
+<h3 style="margin-top:20px;">🌍 Countries</h3>
+<div id="countriesStats"></div>
+
+<h3 style="margin-top:20px;">🏢 ISPs</h3>
+<div id="ispStats"></div>
+
+<h3 style="margin-top:20px;">📡 ASN</h3>
+<div id="asnStats"></div>
+
 </div>
 
 <table>
@@ -172,7 +184,7 @@ th,td{
 <th>IP</th>
 <th>Status</th>
 <th>ISP</th>
-<th>Organization</th>
+<th>Org</th>
 <th>ASN</th>
 <th>Country</th>
 <th>Region</th>
@@ -195,68 +207,31 @@ const results=document.getElementById("results");
 const totalEl=document.getElementById("total");
 const successEl=document.getElementById("success");
 const failedEl=document.getElementById("failed");
+const rateEl=document.getElementById("rate");
 
 const progressBar=document.getElementById("progressBar");
+
+const countriesStats=document.getElementById("countriesStats");
+const ispStats=document.getElementById("ispStats");
+const asnStats=document.getElementById("asnStats");
+
 const searchInput=document.getElementById("searchInput");
 
 let csvRows=[];
 const cache={};
 
-// ================= SAVE =================
-function save(){
-localStorage.setItem("ip_intel",JSON.stringify(csvRows));
-}
-
-function load(){
-let data=localStorage.getItem("ip_intel");
-if(data){
-csvRows=JSON.parse(data);
-render();
-}
-}
-
-function render(){
-
-results.innerHTML="";
-
-csvRows.forEach(d=>{
-
-let row=document.createElement("tr");
-
-row.innerHTML=`
-<td>${d.ip}</td>
-<td class="${d.status==="Success"?"success":"failed"}">${d.status}</td>
-<td>${d.isp}</td>
-<td>${d.org}</td>
-<td>${d.asn}</td>
-<td>${d.country}</td>
-<td>${d.region}</td>
-<td>${d.city}</td>
-<td>${d.message}</td>
-`;
-
-results.appendChild(row);
-
-});
-
-totalEl.textContent=csvRows.length;
-successEl.textContent=csvRows.filter(x=>x.status==="Success").length;
-failedEl.textContent=csvRows.filter(x=>x.status==="Failed").length;
-
-}
-
 // ================= FETCH =================
 async function fetchAPI(url){
 try{
-let res=await fetch(url);
-if(!res.ok) return null;
-return await res.json();
+let r=await fetch(url);
+if(!r.ok) return null;
+return await r.json();
 }catch{
 return null;
 }
 }
 
-// ================= IP DATA =================
+// ================= IP ENGINE =================
 async function getIP(ip){
 
 if(cache[ip]) return cache[ip];
@@ -304,12 +279,12 @@ asn:"N/A",
 country:"",
 region:"",
 city:"",
-message:"No Data"
+message:"NO DATA"
 };
 }
 
-// ================= BATCH =================
-async function process(batch){
+// ================= PROCESS =================
+async function processBatch(batch){
 
 return await Promise.allSettled(
 batch.map(async ip=>{
@@ -324,7 +299,7 @@ asn:"",
 country:"",
 region:"",
 city:"",
-message:"Bad Format"
+message:"BAD FORMAT"
 };
 }
 
@@ -332,6 +307,53 @@ return await getIP(ip);
 
 })
 );
+}
+
+// ================= STATS ENGINE =================
+function updateStats(data){
+
+let countries={}, isps={}, asns={};
+let success=0;
+
+data.forEach(d=>{
+
+if(d.status==="Success"){
+success++;
+
+countries[d.country]=(countries[d.country]||0)+1;
+isps[d.isp]=(isps[d.isp]||0)+1;
+asns[d.asn]=(asns[d.asn]||0)+1;
+}
+
+});
+
+// rate
+let rate=data.length?((success/data.length)*100).toFixed(1):0;
+rateEl.textContent=rate+"%";
+
+// helper render
+function render(obj,el){
+
+el.innerHTML="";
+
+Object.entries(obj)
+.sort((a,b)=>b[1]-a[1])
+.slice(0,8)
+.forEach(([k,v])=>{
+
+let div=document.createElement("div");
+div.className="badge";
+div.innerText=`${k}: ${v}`;
+el.appendChild(div);
+
+});
+
+}
+
+render(countries,countriesStats);
+render(isps,ispStats);
+render(asns,asnStats);
+
 }
 
 // ================= MAIN =================
@@ -349,8 +371,6 @@ let success=0;
 let failed=0;
 let done=0;
 
-const batchSize=20;
-
 ips.forEach(ip=>{
 let row=document.createElement("tr");
 row.id="row-"+ip.replaceAll(".","-");
@@ -364,10 +384,12 @@ row.innerHTML=`
 results.appendChild(row);
 });
 
+let batchSize=20;
+
 for(let i=0;i<ips.length;i+=batchSize){
 
 let batch=ips.slice(i,i+batchSize);
-let res=await process(batch);
+let res=await processBatch(batch);
 
 res.forEach(r=>{
 
@@ -395,16 +417,15 @@ row.innerHTML=`
 `;
 
 csvRows.push(d);
-save();
 
 });
 
 successEl.textContent=success;
 failedEl.textContent=failed;
 
-}
+updateStats(csvRows);
 
-save();
+}
 
 });
 
@@ -435,9 +456,6 @@ r.style.display=r.innerText.toLowerCase().includes(v)?"":"none";
 });
 
 });
-
-// ================= INIT =================
-load();
 
 </script>
 
