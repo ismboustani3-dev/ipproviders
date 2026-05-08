@@ -31,7 +31,6 @@ body{
     padding:20px;
     border-radius:12px;
     box-shadow:0 2px 10px rgba(0,0,0,0.08);
-    transition:0.3s;
 }
 
 h1{
@@ -65,9 +64,20 @@ button{
     font-weight:bold;
 }
 
-#checkBtn{background:#2563eb;color:white;}
-#downloadBtn{background:#111827;color:white;}
-#darkModeBtn{background:#7c3aed;color:white;}
+#checkBtn{
+    background:#2563eb;
+    color:white;
+}
+
+#downloadBtn{
+    background:#111827;
+    color:white;
+}
+
+#darkModeBtn{
+    background:#7c3aed;
+    color:white;
+}
 
 .stats{
     margin-top:30px;
@@ -90,7 +100,6 @@ button{
     height:100%;
     width:0%;
     background:#2563eb;
-    transition:0.2s;
 }
 
 .badges{
@@ -173,7 +182,9 @@ th,td{
 
 <div class="container">
 
-<h1>ULTRA IP CHECKER</h1>
+<h1>ULTRA IP Provider Checker</h1>
+
+<button id="darkModeBtn">🌙 Dark Mode</button>
 
 <textarea id="ipInput">
 8.8.8.8
@@ -184,9 +195,8 @@ th,td{
 </textarea>
 
 <div class="controls">
-<button id="checkBtn">Check</button>
+<button id="checkBtn">Check IPs</button>
 <button id="downloadBtn">Download CSV</button>
-<button id="darkModeBtn">🌙 Dark Mode</button>
 </div>
 
 <div class="stats">
@@ -227,37 +237,47 @@ th,td{
 
 const checkBtn = document.getElementById("checkBtn");
 const results = document.getElementById("results");
+
 const totalEl = document.getElementById("total");
 const successEl = document.getElementById("success");
 const failedEl = document.getElementById("failed");
-const progressBar = document.getElementById("progressBar");
+
 const providersDiv = document.getElementById("providers");
 const regionsDiv = document.getElementById("regions");
+
+const progressBar = document.getElementById("progressBar");
+
 const darkBtn = document.getElementById("darkModeBtn");
 
 let csvRows = [];
 const cache = {};
 
-// MAP
+// 🌍 MAP
 const map = L.map("map").setView([20,0],2);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
     attribution:"© OpenStreetMap"
 }).addTo(map);
 
-// DARK MODE
+// 🌙 DARK MODE
 darkBtn.addEventListener("click",()=>{
+
     document.body.classList.toggle("dark");
-    localStorage.setItem("dark",document.body.classList.contains("dark"));
+
+    localStorage.setItem(
+        "dark",
+        document.body.classList.contains("dark")
+    );
+
 });
 
 if(localStorage.getItem("dark")==="true"){
     document.body.classList.add("dark");
 }
 
-// VALIDATE IP
-function isIP(ip){
-return /^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(ip);
+// VALIDATE
+function validateIP(ip){
+return /^((25[0-5]|2[0-4][0-9]|[01]?\d\d?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?\d\d?)$/.test(ip);
 }
 
 // FETCH
@@ -273,19 +293,19 @@ async function getIP(ip){
 
 if(cache[ip]) return cache[ip];
 
-let d = await fetchAPI(`https://ipwho.is/${ip}`);
+let data = await fetchAPI(`https://ipwho.is/${ip}`);
 
-if(d && d.success!==false){
+if(data && data.success!==false){
 
 let res={
 ip,
 status:"Success",
-provider:d.connection?.isp||"Unknown",
-country:d.country||"",
-region:d.region||"",
-city:d.city||"",
-lat:d.latitude,
-lon:d.longitude
+provider:data.connection?.isp||"Unknown",
+country:data.country||"",
+region:data.region||"",
+city:data.city||"",
+lat:data.latitude,
+lon:data.longitude
 };
 
 cache[ip]=res;
@@ -295,12 +315,12 @@ return res;
 return {ip,status:"Failed",provider:"Error",country:"",region:"",city:""};
 }
 
-// SAVE AUTO
-function save(){
+// 💾 SAVE AUTO
+function saveResults(){
 localStorage.setItem("ip_data",JSON.stringify(csvRows));
 }
 
-// LOAD
+// LOAD OLD DATA
 window.onload=()=>{
 let d=localStorage.getItem("ip_data");
 if(d){
@@ -325,10 +345,13 @@ row.innerHTML=`
 
 results.appendChild(row);
 
-// MAP
+// MAP MARKER
 if(data.lat && data.lon){
-L.marker([data.lat,data.lon]).addTo(map)
+
+L.marker([data.lat,data.lon])
+.addTo(map)
 .bindPopup(`${data.ip}<br>${data.country}<br>${data.city}`);
+
 }
 }
 
@@ -338,10 +361,12 @@ checkBtn.onclick=async()=>{
 results.innerHTML="";
 csvRows=[];
 
-let ips=document.getElementById("ipInput").value
-.split("\n").map(x=>x.trim()).filter(x=>x);
+let ips=document.getElementById("ipInput")
+.value.split("\n")
+.map(i=>i.trim())
+.filter(i=>i);
 
-// REMOVE DUPLICATES
+// 🚫 REMOVE DUPLICATES
 ips=[...new Set(ips)];
 
 totalEl.innerText=ips.length;
@@ -353,7 +378,7 @@ for(let i=0;i<ips.length;i++){
 
 let ip=ips[i];
 
-let data= isIP(ip)? await getIP(ip) :
+let data=validateIP(ip)? await getIP(ip) :
 {ip,status:"Failed",provider:"Invalid",country:"",region:"",city:""};
 
 if(data.status==="Success"){
@@ -365,8 +390,9 @@ failed++;
 }
 
 csvRows.push(data);
+saveResults();
+
 addRow(data);
-save();
 
 progressBar.style.width=((i+1)/ips.length)*100+"%";
 successEl.innerText=success;
@@ -395,16 +421,21 @@ regionsDiv.appendChild(d);
 
 // DOWNLOAD
 downloadBtn.onclick=()=>{
+
 let csv="IP,Status,Provider,Country,Region,City\n";
+
 csvRows.forEach(r=>{
 csv+=`${r.ip},${r.status},${r.provider},${r.country},${r.region},${r.city}\n`;
 });
+
 let blob=new Blob([csv],{type:"text/csv"});
 let url=URL.createObjectURL(blob);
+
 let a=document.createElement("a");
 a.href=url;
-a.download="ips.csv";
+a.download="ip_results.csv";
 a.click();
+
 URL.revokeObjectURL(url);
 };
 
