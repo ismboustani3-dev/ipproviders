@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>IP Checker Pro</title>
+<title>IP Checker Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
@@ -10,113 +10,115 @@
 body{
 margin:0;
 font-family:Arial;
-background:#f5f6fa;
-transition:.3s;
-}
-
-.dark{
-background:#0f172a;
+background:linear-gradient(135deg,#0f172a,#1e293b);
 color:white;
 }
 
 .container{
-max-width:1000px;
+max-width:1100px;
 margin:auto;
-padding:20px;
+padding:25px;
+}
+
+.header{
+display:flex;
+justify-content:space-between;
+align-items:center;
+margin-bottom:20px;
+}
+
+h1{
+font-size:26px;
+letter-spacing:1px;
 }
 
 .card{
-background:white;
+background:rgba(255,255,255,0.06);
+backdrop-filter:blur(10px);
+border:1px solid rgba(255,255,255,0.1);
 padding:15px;
-border-radius:12px;
-box-shadow:0 2px 10px rgba(0,0,0,0.1);
-}
-
-.dark .card{
-background:#111827;
+border-radius:14px;
+box-shadow:0 10px 30px rgba(0,0,0,0.3);
 }
 
 textarea{
 width:100%;
 height:120px;
-padding:10px;
-border-radius:8px;
-border:1px solid #ccc;
-}
-
-.dark textarea{
-background:#1f2937;
-color:white;
 border:none;
+outline:none;
+padding:10px;
+border-radius:10px;
+background:rgba(255,255,255,0.08);
+color:white;
+resize:none;
 }
 
 button{
 padding:10px 14px;
 border:none;
-border-radius:6px;
+border-radius:10px;
 cursor:pointer;
-margin:5px;
 font-weight:bold;
+transition:.2s;
 }
 
 .btn{
-background:#2563eb;
+background:#3b82f6;
 color:white;
 }
 
-.red{background:#ef4444;color:white;}
-.gray{background:#6b7280;color:white;}
-.green{background:#10b981;color:white;}
+.btn:hover{background:#2563eb}
 
 .controls{
 display:flex;
-flex-wrap:wrap;
 gap:10px;
 margin-top:10px;
+flex-wrap:wrap;
+}
+
+input,select{
+padding:8px;
+border-radius:8px;
+border:none;
+background:rgba(255,255,255,0.1);
+color:white;
+outline:none;
 }
 
 table{
 width:100%;
 margin-top:15px;
 border-collapse:collapse;
-}
-
-th,td{
-padding:10px;
-border-bottom:1px solid #ddd;
-text-align:left;
-}
-
-.success{color:green;font-weight:bold;}
-.failed{color:red;font-weight:bold;}
-
-.badge{
-padding:3px 8px;
-background:#111;
-color:white;
+overflow:hidden;
 border-radius:10px;
-font-size:12px;
 }
 
-.dark .badge{background:white;color:black;}
-
-.top{
-display:flex;
-justify-content:space-between;
-align-items:center;
-margin-bottom:10px;
+th{
+text-align:left;
+padding:10px;
+background:rgba(255,255,255,0.1);
 }
 
-input,select{
-padding:8px;
-border-radius:6px;
-border:1px solid #ccc;
+td{
+padding:10px;
+border-bottom:1px solid rgba(255,255,255,0.1);
 }
 
-.dark input,.dark select{
-background:#1f2937;
-color:white;
-border:none;
+.success{color:#22c55e;font-weight:bold;}
+.failed{color:#ef4444;font-weight:bold;}
+
+.stats{
+display:grid;
+grid-template-columns:repeat(3,1fr);
+gap:10px;
+margin-top:15px;
+}
+
+.box{
+background:rgba(255,255,255,0.07);
+padding:10px;
+border-radius:10px;
+text-align:center;
 }
 
 </style>
@@ -126,23 +128,21 @@ border:none;
 
 <div class="container">
 
-<div class="card">
-
-<div class="top">
-<h2>IP Checker Pro ⚡</h2>
-<button class="gray" onclick="toggleDark()">🌙</button>
+<div class="header">
+<h1>⚡ IP Dashboard</h1>
 </div>
+
+<div class="card">
 
 <textarea id="ips">8.8.8.8
 1.1.1.1
-104.26.10.78
-172.67.73.21</textarea>
+104.26.10.78</textarea>
 
 <div class="controls">
 
-<button class="btn" onclick="checkIPs()">Check</button>
-<button class="green" onclick="exportCSV()">CSV</button>
-<button class="gray" onclick="clearAll()">Clear</button>
+<button class="btn" onclick="check()">Check IPs</button>
+
+<input id="search" placeholder="Search..." onkeyup="render()">
 
 <select id="filter" onchange="render()">
 <option value="all">All</option>
@@ -150,15 +150,13 @@ border:none;
 <option value="failed">Failed</option>
 </select>
 
-<input id="search" placeholder="Search..." onkeyup="render()">
-
 </div>
 
-<p>
-Total: <span id="total">0</span> |
-Success: <span id="ok">0</span> |
-Failed: <span id="bad">0</span>
-</p>
+<div class="stats">
+<div class="box">Total <div id="t">0</div></div>
+<div class="box">Success <div id="s">0</div></div>
+<div class="box">Failed <div id="f">0</div></div>
+</div>
 
 <table>
 <thead>
@@ -169,6 +167,7 @@ Failed: <span id="bad">0</span>
 <th>Country</th>
 </tr>
 </thead>
+
 <tbody id="out"></tbody>
 </table>
 
@@ -178,41 +177,28 @@ Failed: <span id="bad">0</span>
 
 <script>
 
-let data = [];
+let data=[];
 
-function toggleDark(){
-document.body.classList.toggle("dark");
-}
-
-async function fetchIP(ip){
-
+async function get(ip){
 try{
-let r = await fetch("https://ipwho.is/"+ip);
-let d = await r.json();
+let r=await fetch("https://ipwho.is/"+ip);
+let d=await r.json();
 
 if(d.success){
-return{
-ip,
-status:"Success",
-provider:d.connection?.isp || "Unknown",
-country:d.country || ""
-};
+return{ip,status:"Success",provider:d.connection?.isp||"Unknown",country:d.country};
 }
 }catch{}
-
 return{ip,status:"Failed",provider:"Error",country:""};
 }
 
-async function checkIPs(){
+async function check(){
 
-let ips = document.getElementById("ips")
-.value.split("\n").map(x=>x.trim()).filter(Boolean);
+let ips=document.getElementById("ips").value.split("\n").map(x=>x.trim()).filter(Boolean);
 
-data = [];
+data=[];
 
 for(let ip of ips){
-let res = await fetchIP(ip);
-data.push(res);
+data.push(await get(ip));
 }
 
 render();
@@ -220,22 +206,20 @@ render();
 
 function render(){
 
-let filter = document.getElementById("filter").value;
-let search = document.getElementById("search").value.toLowerCase();
+let f=document.getElementById("filter").value;
+let s=document.getElementById("search").value.toLowerCase();
 
-let out = document.getElementById("out");
-out.innerHTML = "";
+let out=document.getElementById("out");
+out.innerHTML="";
 
-let list = data.filter(x=>{
-
-let f = filter==="all" || x.status.toLowerCase()===filter;
-let s = x.ip.includes(search) || x.provider.toLowerCase().includes(search);
-
-return f && s;
+let list=data.filter(x=>{
+let okFilter=f==="all"||x.status.toLowerCase()===f;
+let okSearch=x.ip.includes(s)||x.provider.toLowerCase().includes(s);
+return okFilter && okSearch;
 });
 
 list.forEach(x=>{
-out.innerHTML += `
+out.innerHTML+=`
 <tr>
 <td>${x.ip}</td>
 <td class="${x.status==="Success"?"success":"failed"}">${x.status}</td>
@@ -244,27 +228,9 @@ out.innerHTML += `
 </tr>`;
 });
 
-document.getElementById("total").innerText = data.length;
-document.getElementById("ok").innerText = data.filter(x=>x.status==="Success").length;
-document.getElementById("bad").innerText = data.filter(x=>x.status==="Failed").length;
-}
-
-function clearAll(){
-data=[];
-render();
-}
-
-function exportCSV(){
-let csv="IP,Status,Provider,Country\n";
-data.forEach(x=>{
-csv+=`${x.ip},${x.status},${x.provider},${x.country}\n`;
-});
-
-let b=new Blob([csv],{type:"text/csv"});
-let a=document.createElement("a");
-a.href=URL.createObjectURL(b);
-a.download="ips.csv";
-a.click();
+document.getElementById("t").innerText=data.length;
+document.getElementById("s").innerText=data.filter(x=>x.status==="Success").length;
+document.getElementById("f").innerText=data.filter(x=>x.status==="Failed").length;
 }
 
 </script>
