@@ -2,22 +2,24 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>IP Checker Dashboard</title>
+<title>PRO IP Dashboard</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 
 body{
 margin:0;
 font-family:Arial;
-background:linear-gradient(135deg,#0f172a,#1e293b);
+background:#0b1220;
 color:white;
 }
 
 .container{
-max-width:1100px;
+max-width:1200px;
 margin:auto;
-padding:25px;
+padding:20px;
 }
 
 .header{
@@ -27,39 +29,50 @@ align-items:center;
 margin-bottom:20px;
 }
 
-h1{
-font-size:26px;
-letter-spacing:1px;
+.title{
+font-size:22px;
+font-weight:bold;
+}
+
+.grid{
+display:grid;
+grid-template-columns:repeat(3,1fr);
+gap:15px;
+margin-bottom:15px;
 }
 
 .card{
-background:rgba(255,255,255,0.06);
-backdrop-filter:blur(10px);
-border:1px solid rgba(255,255,255,0.1);
+background:#111827;
 padding:15px;
-border-radius:14px;
-box-shadow:0 10px 30px rgba(0,0,0,0.3);
+border-radius:12px;
+box-shadow:0 10px 20px rgba(0,0,0,0.3);
 }
 
 textarea{
 width:100%;
-height:120px;
-border:none;
-outline:none;
+height:110px;
 padding:10px;
+border:none;
 border-radius:10px;
-background:rgba(255,255,255,0.08);
+background:#1f2937;
 color:white;
+outline:none;
 resize:none;
+}
+
+.controls{
+display:flex;
+gap:10px;
+margin-top:10px;
+flex-wrap:wrap;
 }
 
 button{
 padding:10px 14px;
 border:none;
-border-radius:10px;
+border-radius:8px;
 cursor:pointer;
 font-weight:bold;
-transition:.2s;
 }
 
 .btn{
@@ -69,20 +82,27 @@ color:white;
 
 .btn:hover{background:#2563eb}
 
-.controls{
-display:flex;
-gap:10px;
-margin-top:10px;
-flex-wrap:wrap;
-}
-
 input,select{
 padding:8px;
 border-radius:8px;
 border:none;
-background:rgba(255,255,255,0.1);
+background:#1f2937;
 color:white;
 outline:none;
+}
+
+.stats{
+display:grid;
+grid-template-columns:repeat(3,1fr);
+gap:10px;
+margin-top:15px;
+}
+
+.stat{
+background:#0f172a;
+padding:10px;
+border-radius:10px;
+text-align:center;
 }
 
 table{
@@ -94,31 +114,24 @@ border-radius:10px;
 }
 
 th{
-text-align:left;
+background:#1f2937;
 padding:10px;
-background:rgba(255,255,255,0.1);
+text-align:left;
 }
 
 td{
 padding:10px;
-border-bottom:1px solid rgba(255,255,255,0.1);
+border-bottom:1px solid #1f2937;
 }
 
 .success{color:#22c55e;font-weight:bold;}
 .failed{color:#ef4444;font-weight:bold;}
 
-.stats{
-display:grid;
-grid-template-columns:repeat(3,1fr);
-gap:10px;
-margin-top:15px;
-}
-
-.box{
-background:rgba(255,255,255,0.07);
+canvas{
+background:#111827;
+border-radius:12px;
 padding:10px;
-border-radius:10px;
-text-align:center;
+margin-top:15px;
 }
 
 </style>
@@ -129,33 +142,39 @@ text-align:center;
 <div class="container">
 
 <div class="header">
-<h1>⚡ IP Dashboard</h1>
+<div class="title">🚀 PRO IP DASHBOARD</div>
 </div>
 
-<div class="card">
+<div class="grid">
 
+<div class="card">
 <textarea id="ips">8.8.8.8
 1.1.1.1
-104.26.10.78</textarea>
+104.26.10.78
+172.67.73.21</textarea>
 
 <div class="controls">
-
-<button class="btn" onclick="check()">Check IPs</button>
-
+<button class="btn" onclick="check()">Run Scan</button>
 <input id="search" placeholder="Search..." onkeyup="render()">
-
 <select id="filter" onchange="render()">
 <option value="all">All</option>
 <option value="success">Success</option>
 <option value="failed">Failed</option>
 </select>
+</div>
 
 </div>
 
-<div class="stats">
-<div class="box">Total <div id="t">0</div></div>
-<div class="box">Success <div id="s">0</div></div>
-<div class="box">Failed <div id="f">0</div></div>
+<div class="card">
+<div class="stat">TOTAL <div id="t">0</div></div>
+<div class="stat">SUCCESS <div id="s">0</div></div>
+<div class="stat">FAILED <div id="f">0</div></div>
+</div>
+
+<div class="card">
+<canvas id="chart"></canvas>
+</div>
+
 </div>
 
 <table>
@@ -167,11 +186,8 @@ text-align:center;
 <th>Country</th>
 </tr>
 </thead>
-
 <tbody id="out"></tbody>
 </table>
-
-</div>
 
 </div>
 
@@ -179,29 +195,37 @@ text-align:center;
 
 let data=[];
 
-async function get(ip){
+async function fetchIP(ip){
 try{
 let r=await fetch("https://ipwho.is/"+ip);
 let d=await r.json();
 
 if(d.success){
-return{ip,status:"Success",provider:d.connection?.isp||"Unknown",country:d.country};
+return{
+ip,
+status:"Success",
+provider:d.connection?.isp||"Unknown",
+country:d.country||""
+};
 }
 }catch{}
+
 return{ip,status:"Failed",provider:"Error",country:""};
 }
 
 async function check(){
 
-let ips=document.getElementById("ips").value.split("\n").map(x=>x.trim()).filter(Boolean);
+let ips=document.getElementById("ips")
+.value.split("\n").map(x=>x.trim()).filter(Boolean);
 
 data=[];
 
 for(let ip of ips){
-data.push(await get(ip));
+data.push(await fetchIP(ip));
 }
 
 render();
+draw();
 }
 
 function render(){
@@ -213,9 +237,9 @@ let out=document.getElementById("out");
 out.innerHTML="";
 
 let list=data.filter(x=>{
-let okFilter=f==="all"||x.status.toLowerCase()===f;
-let okSearch=x.ip.includes(s)||x.provider.toLowerCase().includes(s);
-return okFilter && okSearch;
+let ok=f==="all"||x.status.toLowerCase()===f;
+let ok2=x.ip.includes(s)||x.provider.toLowerCase().includes(s);
+return ok && ok2;
 });
 
 list.forEach(x=>{
@@ -231,6 +255,25 @@ out.innerHTML+=`
 document.getElementById("t").innerText=data.length;
 document.getElementById("s").innerText=data.filter(x=>x.status==="Success").length;
 document.getElementById("f").innerText=data.filter(x=>x.status==="Failed").length;
+}
+
+function draw(){
+
+let ctx=document.getElementById("chart").getContext("2d");
+
+let ok=data.filter(x=>x.status==="Success").length;
+let bad=data.filter(x=>x.status==="Failed").length;
+
+new Chart(ctx,{
+type:"doughnut",
+data:{
+labels:["Success","Failed"],
+datasets:[{
+data:[ok,bad],
+backgroundColor:["#22c55e","#ef4444"]
+}]
+}
+});
 }
 
 </script>
