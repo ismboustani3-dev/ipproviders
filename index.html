@@ -176,20 +176,19 @@ td{
 
 </style>
 </head>
+
 <body>
 
 <div class="container">
 
     <h1>ULTRA IP Provider Checker</h1>
 
-    <textarea id="ipInput" placeholder="One IP per line">
-8.8.8.8
+    <textarea id="ipInput">8.8.8.8
 1.1.1.1
 104.26.10.78
 172.67.73.21
 151.101.1.69
-54.38.193.115
-    </textarea>
+54.38.193.115</textarea>
 
     <div class="controls">
         <button id="checkBtn">Check IPs</button>
@@ -258,106 +257,102 @@ const searchInput = document.getElementById("searchInput");
 let csvRows = [];
 const cache = {};
 
-function validateIP(ip){
+// ================= SAVE SYSTEM =================
+function saveResults(){
+    localStorage.setItem("ip_results", JSON.stringify(csvRows));
+}
 
+function loadResults(){
+    const saved = localStorage.getItem("ip_results");
+    if(saved){
+        csvRows = JSON.parse(saved);
+        renderSaved();
+    }
+}
+
+function renderSaved(){
+
+    results.innerHTML = "";
+
+    csvRows.forEach(data=>{
+
+        const row = document.createElement("tr");
+
+        row.innerHTML = `
+            <td>${data.ip}</td>
+            <td class="${data.status==="Success"?"success":"failed"}">${data.status}</td>
+            <td>${data.provider}</td>
+            <td>${data.country}</td>
+            <td>${data.region}</td>
+            <td>${data.city}</td>
+        `;
+
+        results.appendChild(row);
+    });
+
+    totalEl.textContent = csvRows.length;
+    successEl.textContent = csvRows.filter(x=>x.status==="Success").length;
+    failedEl.textContent = csvRows.filter(x=>x.status==="Failed").length;
+}
+
+// ================= VALIDATE =================
+function validateIP(ip){
     const regex =
     /^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
 
     return regex.test(ip);
 }
 
+// ================= FETCH =================
 async function fetchAPI(url){
-
     try{
-
         const controller = new AbortController();
+        const timeout = setTimeout(()=>controller.abort(),5000);
 
-        const timeout =
-            setTimeout(()=>controller.abort(),5000);
-
-        const response = await fetch(url,{
-            signal:controller.signal
-        });
-
+        const response = await fetch(url,{signal:controller.signal});
         clearTimeout(timeout);
 
         return await response.json();
-
-    }catch(err){
-
+    }catch{
         return null;
     }
 }
 
+// ================= IP DATA =================
 async function getIPData(ip){
 
-    if(cache[ip]){
+    if(cache[ip]) return cache[ip];
 
-        return cache[ip];
-    }
-
-    // API 1
-    let data =
-        await fetchAPI(`https://ipwho.is/${ip}`);
+    let data = await fetchAPI(`https://ipwho.is/${ip}`);
 
     if(data && data.success !== false){
 
-        const result = {
-            ip:ip,
+        return cache[ip] = {
+            ip,
             status:"Success",
             provider:data.connection?.isp || "Unknown",
             country:data.country || "",
             region:data.region || "",
             city:data.city || ""
         };
-
-        cache[ip] = result;
-
-        return result;
     }
 
-    // API 2
-    data =
-        await fetchAPI(`https://ipapi.co/${ip}/json/`);
+    data = await fetchAPI(`https://ipapi.co/${ip}/json/`);
 
     if(data && !data.error){
 
-        const result = {
-            ip:ip,
+        return cache[ip] = {
+            ip,
             status:"Success",
             provider:data.org || "Unknown",
             country:data.country_name || "",
             region:data.region || "",
             city:data.city || ""
         };
-
-        cache[ip] = result;
-
-        return result;
-    }
-
-    // API 3
-    data =
-        await fetchAPI(`https://ipinfo.io/${ip}/json`);
-
-    if(data){
-
-        const result = {
-            ip:ip,
-            status:"Success",
-            provider:data.org || "Unknown",
-            country:data.country || "",
-            region:data.region || "",
-            city:data.city || ""
-        };
-
-        cache[ip] = result;
-
-        return result;
     }
 
     return {
-        ip:ip,
+        ip,
         status:"Failed",
         provider:"Fetch Error",
         country:"",
@@ -366,16 +361,15 @@ async function getIPData(ip){
     };
 }
 
+// ================= PROCESS =================
 async function processBatch(batch){
 
     return await Promise.allSettled(
-
         batch.map(async ip=>{
 
             if(!validateIP(ip)){
-
                 return {
-                    ip:ip,
+                    ip,
                     status:"Failed",
                     provider:"Invalid Format",
                     country:"",
@@ -385,12 +379,11 @@ async function processBatch(batch){
             }
 
             return await getIPData(ip);
-
         })
-
     );
 }
 
+// ================= MAIN =================
 checkBtn.addEventListener("click", async ()=>{
 
     results.innerHTML = "";
@@ -399,115 +392,62 @@ checkBtn.addEventListener("click", async ()=>{
 
     csvRows = [];
 
-    const ips =
-        document.getElementById("ipInput")
-        .value
-        .split("\n")
-        .map(ip=>ip.trim())
-        .filter(ip=>ip !== "");
+    const ips = document.getElementById("ipInput")
+    .value.split("\n").map(x=>x.trim()).filter(Boolean);
 
     totalEl.textContent = ips.length;
 
     let success = 0;
     let failed = 0;
-
     let processed = 0;
 
     const providers = {};
     const regions = {};
 
-    // loading rows
     ips.forEach(ip=>{
+        const row = document.createElement("tr");
 
-        const row =
-            document.createElement("tr");
-
-        row.id =
-            "row-" + ip.replaceAll(".","-");
+        row.id = "row-" + ip.replaceAll(".","-");
 
         row.innerHTML = `
             <td>${ip}</td>
             <td class="loading">Checking...</td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
+            <td></td><td></td><td></td><td></td>
         `;
 
         results.appendChild(row);
-
     });
 
-    // BATCH SIZE
     const batchSize = 30;
 
     for(let i=0;i<ips.length;i+=batchSize){
 
-        const batch =
-            ips.slice(i,i+batchSize);
-
-        const batchResults =
-            await processBatch(batch);
+        const batch = ips.slice(i,i+batchSize);
+        const batchResults = await processBatch(batch);
 
         batchResults.forEach(result=>{
 
-            const data =
-                result.status === "fulfilled"
-                ? result.value
-                : {
-                    ip:"Unknown",
-                    status:"Failed",
-                    provider:"Promise Error",
-                    country:"",
-                    region:"",
-                    city:""
-                };
+            const data = result.status==="fulfilled"
+            ? result.value
+            : {ip:"Unknown",status:"Failed",provider:"Error",country:"",region:"",city:""};
 
             processed++;
 
-            const progress =
-                (processed / ips.length) * 100;
+            progressBar.style.width = ((processed/ips.length)*100) + "%";
 
-            progressBar.style.width =
-                progress + "%";
+            const row = document.getElementById("row-"+data.ip.replaceAll(".","-"));
 
-            const row =
-                document.getElementById(
-                    "row-" +
-                    data.ip.replaceAll(".","-")
-                );
-
-            if(data.status === "Success"){
-
+            if(data.status==="Success"){
                 success++;
-
-                providers[data.provider] =
-                    (providers[data.provider] || 0) + 1;
-
-                if(data.region){
-
-                    regions[data.region] =
-                        (regions[data.region] || 0) + 1;
-                }
-
+                providers[data.provider]=(providers[data.provider]||0)+1;
+                if(data.region) regions[data.region]=(regions[data.region]||0)+1;
             }else{
-
                 failed++;
             }
 
             row.innerHTML = `
                 <td>${data.ip}</td>
-
-                <td class="${
-                    data.status === "Success"
-                    ? "success"
-                    : "failed"
-                }">
-
-                    ${data.status}
-
-                </td>
-
+                <td class="${data.status==="Success"?"success":"failed"}">${data.status}</td>
                 <td>${data.provider}</td>
                 <td>${data.country}</td>
                 <td>${data.region}</td>
@@ -516,6 +456,8 @@ checkBtn.addEventListener("click", async ()=>{
 
             csvRows.push(data);
 
+            saveResults(); // 💾 SAVE AFTER EACH RESULT
+
         });
 
         successEl.textContent = success;
@@ -523,97 +465,59 @@ checkBtn.addEventListener("click", async ()=>{
     }
 
     // providers
-    for(let provider in providers){
-
-        const div =
-            document.createElement("div");
-
-        div.className = "badge";
-
-        div.innerText =
-            provider + ": " + providers[provider];
-
-        providersDiv.appendChild(div);
+    for(let p in providers){
+        let d=document.createElement("div");
+        d.className="badge";
+        d.innerText=p+": "+providers[p];
+        providersDiv.appendChild(d);
     }
 
     // regions
-    for(let region in regions){
-
-        const div =
-            document.createElement("div");
-
-        div.className = "badge";
-
-        div.innerText =
-            region + ": " + regions[region];
-
-        regionsDiv.appendChild(div);
+    for(let r in regions){
+        let d=document.createElement("div");
+        d.className="badge";
+        d.innerText=r+": "+regions[r];
+        regionsDiv.appendChild(d);
     }
 
+    saveResults(); // 💾 FINAL SAVE
 });
 
-document.getElementById("downloadBtn")
-.addEventListener("click", ()=>{
+// ================= DOWNLOAD =================
+document.getElementById("downloadBtn").addEventListener("click",()=>{
 
-    if(csvRows.length === 0){
-
+    if(!csvRows.length){
         alert("No Results");
         return;
     }
 
-    let csv =
-        "IP,Status,Provider,Country,Region,City\n";
+    let csv="IP,Status,Provider,Country,Region,City\n";
 
-    csvRows.forEach(row=>{
-
-        csv +=
-        `${row.ip},${row.status},${row.provider},${row.country},${row.region},${row.city}\n`;
-
+    csvRows.forEach(r=>{
+        csv+=`${r.ip},${r.status},${r.provider},${r.country},${r.region},${r.city}\n`;
     });
 
-    const blob =
-        new Blob([csv],{
-            type:"text/csv"
-        });
+    const blob = new Blob([csv],{type:"text/csv"});
+    const a = document.createElement("a");
 
-    const url =
-        URL.createObjectURL(blob);
-
-    const a =
-        document.createElement("a");
-
-    a.href = url;
-
-    a.download =
-        "ip_results.csv";
-
+    a.href = URL.createObjectURL(blob);
+    a.download = "ip_results.csv";
     a.click();
-
-    URL.revokeObjectURL(url);
-
 });
 
-searchInput.addEventListener("keyup", ()=>{
+// ================= SEARCH =================
+searchInput.addEventListener("keyup",()=>{
 
-    const value =
-        searchInput.value.toLowerCase();
+    const v = searchInput.value.toLowerCase();
 
-    const rows =
-        document.querySelectorAll("#results tr");
-
-    rows.forEach(row=>{
-
-        const text =
-            row.innerText.toLowerCase();
-
-        row.style.display =
-            text.includes(value)
-            ? ""
-            : "none";
-
+    document.querySelectorAll("#results tr").forEach(row=>{
+        row.style.display = row.innerText.toLowerCase().includes(v) ? "" : "none";
     });
 
 });
+
+// ================= INIT LOAD =================
+loadResults();
 
 </script>
 
