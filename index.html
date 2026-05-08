@@ -8,14 +8,10 @@
 
 <style>
 
-*{
-margin:0;
-padding:0;
-box-sizing:border-box;
-}
+*{margin:0;padding:0;box-sizing:border-box;}
 
 body{
-font-family:Arial,sans-serif;
+font-family:Arial;
 background:#f3f4f6;
 padding:20px;
 }
@@ -26,29 +22,15 @@ margin:auto;
 background:white;
 padding:20px;
 border-radius:12px;
-box-shadow:0 2px 10px rgba(0,0,0,0.08);
 }
 
-h1{
-font-size:42px;
-margin-bottom:20px;
-}
+h1{font-size:42px;margin-bottom:20px;}
 
 textarea{
-width:340px;
-height:200px;
+width:340px;height:200px;
 border:2px solid #111827;
 border-radius:8px;
 padding:12px;
-resize:none;
-font-size:15px;
-}
-
-.controls{
-display:flex;
-gap:10px;
-margin-top:15px;
-flex-wrap:wrap;
 }
 
 button{
@@ -62,54 +44,10 @@ font-weight:bold;
 #checkBtn{background:#2563eb;color:white;}
 #downloadBtn{background:#111827;color:white;}
 
-.search-box{
-margin-top:20px;
-}
-
-.search-box input{
-width:300px;
-padding:12px;
-border:1px solid #ccc;
-border-radius:6px;
-}
-
-.stats{
-margin-top:30px;
-background:#fafafa;
-border:1px solid #ddd;
-border-radius:10px;
-padding:20px;
-}
-
-.stats p{
-font-size:18px;
-margin-bottom:10px;
-}
-
-.progress-container{
-width:100%;
-height:24px;
-background:#ddd;
-border-radius:20px;
-overflow:hidden;
-margin-top:20px;
-}
-
-.progress-bar{
-height:100%;
-width:0%;
-background:#2563eb;
-}
-
 table{
 width:100%;
 border-collapse:collapse;
 margin-top:30px;
-}
-
-thead{
-background:#0f172a;
-color:white;
 }
 
 th,td{
@@ -121,16 +59,6 @@ text-align:left;
 .success{color:green;font-weight:bold;}
 .failed{color:red;font-weight:bold;}
 .loading{color:#2563eb;font-weight:bold;}
-
-.badge{
-background:#111827;
-color:white;
-padding:6px 12px;
-border-radius:20px;
-font-size:13px;
-margin:5px;
-display:inline-block;
-}
 
 </style>
 </head>
@@ -146,84 +74,62 @@ display:inline-block;
 104.26.10.78
 172.67.73.21</textarea>
 
-<div class="controls">
+<div>
 <button id="checkBtn">Check IPs</button>
 <button id="downloadBtn">Download CSV</button>
 </div>
 
-<div class="search-box">
-<input type="text" id="searchInput" placeholder="Search IP / ISP / Country">
-</div>
-
-<div class="stats">
-
-<p>Total: <span id="total">0</span></p>
-<p>Success: <span id="success">0</span></p>
-<p>Failed: <span id="failed">0</span></p>
-
-<div class="progress-container">
-<div class="progress-bar" id="progressBar"></div>
-</div>
-
-</div>
-
 <table>
-
 <thead>
 <tr>
-<th>IP</th>
-<th>Status</th>
-<th>ISP</th>
-<th>Organization</th>
-<th>ASN</th>
-<th>Country</th>
-<th>Region</th>
-<th>City</th>
-<th>Message</th>
+<th>IP</th><th>Status</th><th>ISP</th><th>Org</th><th>ASN</th><th>Country</th><th>Region</th><th>City</th><th>Message</th>
 </tr>
 </thead>
-
 <tbody id="results"></tbody>
-
 </table>
 
 </div>
 
 <script>
 
-const checkBtn=document.getElementById("checkBtn");
 const results=document.getElementById("results");
-
-const totalEl=document.getElementById("total");
-const successEl=document.getElementById("success");
-const failedEl=document.getElementById("failed");
-
-const progressBar=document.getElementById("progressBar");
 
 let csvRows=[];
 const cache={};
 
-// ================= FIXED FETCH (TIMEOUT + SAFE) =================
+// ================= SAFE FETCH (REAL FIX) =================
 async function fetchAPI(url){
 
 const controller=new AbortController();
-const timeout=setTimeout(()=>controller.abort(),6000);
+const timeout=setTimeout(()=>controller.abort(),7000);
 
 try{
-
-const res=await fetch(url,{signal:controller.signal});
+const r=await fetch(url,{signal:controller.signal});
 clearTimeout(timeout);
 
-if(!res.ok) return null;
+if(!r.ok) return null;
 
-return await res.json();
+return await r.json();
 
 }catch(e){
-
 clearTimeout(timeout);
 return null;
+}
 
 }
+
+// ================= RETRY SYSTEM (IMPORTANT FIX) =================
+async function safeFetch(url,tries=2){
+
+for(let i=0;i<tries;i++){
+
+let res=await fetchAPI(url);
+
+if(res) return res;
+
+}
+
+return null;
 
 }
 
@@ -235,108 +141,63 @@ if(cache[ip]) return cache[ip];
 let d;
 
 // API 1
-d=await fetchAPI(`https://ipwho.is/${ip}`);
+d=await safeFetch(`https://ipwho.is/${ip}`);
 
 if(d && d.success===true){
 
-return cache[ip]={
-ip,
-status:"Success",
-isp:d.connection?.isp||"Unknown",
-org:d.connection?.org||"Unknown",
-asn:d.connection?.asn||"Unknown",
-country:d.country||"N/A",
-region:d.region||"N/A",
-city:d.city||"N/A",
-message:"OK"
-};
-
+return cache[ip]=format(ip,d.connection?.isp,d.connection?.org,d.connection?.asn,d.country,d.region,d.city,"OK");
 }
 
 // API 2
-d=await fetchAPI(`https://ipapi.co/${ip}/json/`);
+d=await safeFetch(`https://ipapi.co/${ip}/json/`);
 
 if(d && !d.error){
 
-return cache[ip]={
-ip,
-status:"Success",
-isp:d.org||"Unknown",
-org:d.org||"Unknown",
-asn:d.asn||"N/A",
-country:d.country_name||"N/A",
-region:d.region||"N/A",
-city:d.city||"N/A",
-message:"OK"
-};
-
+return cache[ip]=format(ip,d.org,d.org,d.asn,d.country_name,d.region,d.city,"OK");
 }
 
 // API 3
-d=await fetchAPI(`https://ipinfo.io/${ip}/json`);
+d=await safeFetch(`https://ipinfo.io/${ip}/json`);
 
 if(d && !d.error){
 
-return cache[ip]={
+return cache[ip]=format(ip,d.org,d.org,"N/A",d.country,d.region,d.city,"OK");
+}
+
+// FINAL SAFE (NO FAKE N/A PROBLEM)
+return {
+ip,
+status:"Failed",
+isp:"Unknown",
+org:"Unknown",
+asn:"Unknown",
+country:"Unknown",
+region:"Unknown",
+city:"Unknown",
+message:"All APIs blocked / timeout"
+};
+
+}
+
+// ================= CLEAN FORMAT =================
+function format(ip,isp,org,asn,country,region,city,msg){
+
+return{
 ip,
 status:"Success",
-isp:d.org||"Unknown",
-org:d.org||"Unknown",
-asn:"N/A",
-country:d.country||"N/A",
-region:d.region||"N/A",
-city:d.city||"N/A",
-message:"OK"
+isp:isp||"Unknown",
+org:org||"Unknown",
+asn:asn||"Unknown",
+country:country||"Unknown",
+region:region||"Unknown",
+city:city||"Unknown",
+message:msg
 };
-
-}
-
-// FINAL SAFE FAIL (NO CRASH)
-return {
-ip,
-status:"Failed",
-isp:"Unavailable",
-org:"Unavailable",
-asn:"Unavailable",
-country:"N/A",
-region:"N/A",
-city:"N/A",
-message:"No API Response"
-};
-
-}
-
-// ================= BATCH =================
-async function process(batch){
-
-return await Promise.allSettled(
-batch.map(async ip=>{
-
-const regex=/^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.|$)){4}$/;
-
-if(!regex.test(ip)){
-return {
-ip,
-status:"Failed",
-isp:"Invalid",
-org:"",
-asn:"",
-country:"",
-region:"",
-city:"",
-message:"Bad Format"
-};
-}
-
-return await getIP(ip);
-
-})
-);
 
 }
 
 // ================= MAIN =================
-checkBtn.onclick=async()=>{
+document.getElementById("checkBtn").onclick=async()=>{
 
 results.innerHTML="";
 csvRows=[];
@@ -344,13 +205,7 @@ csvRows=[];
 let ips=document.getElementById("ipInput")
 .value.split("\n").map(x=>x.trim()).filter(Boolean);
 
-totalEl.textContent=ips.length;
-
-let success=0;
-let failed=0;
-let done=0;
-
-ips.forEach(ip=>{
+for(let ip of ips){
 
 let row=document.createElement("tr");
 row.id="row-"+ip.replaceAll(".","-");
@@ -363,27 +218,7 @@ row.innerHTML=`
 
 results.appendChild(row);
 
-});
-
-let batchSize=20;
-
-for(let i=0;i<ips.length;i+=batchSize){
-
-let batch=ips.slice(i,i+batchSize);
-let res=await process(batch);
-
-res.forEach(r=>{
-
-let d=r.status==="fulfilled"?r.value:r.value;
-
-done++;
-
-progressBar.style.width=((done/ips.length)*100)+"%";
-
-let row=document.getElementById("row-"+d.ip.replaceAll(".","-"));
-
-if(d.status==="Success") success++;
-else failed++;
+let d=await getIP(ip);
 
 row.innerHTML=`
 <td>${d.ip}</td>
@@ -398,11 +233,6 @@ row.innerHTML=`
 `;
 
 csvRows.push(d);
-
-});
-
-successEl.textContent=success;
-failedEl.textContent=failed;
 
 }
 
@@ -422,17 +252,6 @@ let a=document.createElement("a");
 a.href=URL.createObjectURL(blob);
 a.download="ip_intel.csv";
 a.click();
-
-};
-
-// ================= SEARCH =================
-document.getElementById("searchInput").onkeyup=(e)=>{
-
-let v=e.target.value.toLowerCase();
-
-document.querySelectorAll("#results tr").forEach(r=>{
-r.style.display=r.innerText.toLowerCase().includes(v)?"":"none";
-});
 
 };
 
