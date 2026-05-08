@@ -18,6 +18,7 @@ body{
 font-family:Arial,sans-serif;
 background:#f3f4f6;
 padding:20px;
+transition:0.3s;
 }
 
 .container{
@@ -27,6 +28,7 @@ background:white;
 padding:20px;
 border-radius:12px;
 box-shadow:0 2px 10px rgba(0,0,0,0.08);
+transition:0.3s;
 }
 
 h1{
@@ -42,6 +44,7 @@ border-radius:8px;
 padding:12px;
 resize:none;
 font-size:15px;
+transition:0.3s;
 }
 
 .controls{
@@ -57,10 +60,16 @@ border:none;
 border-radius:6px;
 cursor:pointer;
 font-weight:bold;
+transition:0.2s;
+}
+
+button:hover{
+transform:scale(1.05);
 }
 
 #checkBtn{background:#2563eb;color:white;}
 #downloadBtn{background:#111827;color:white;}
+#themeBtn{background:#374151;color:white;}
 
 .search-box{
 margin-top:20px;
@@ -79,6 +88,7 @@ background:#fafafa;
 border:1px solid #ddd;
 border-radius:10px;
 padding:20px;
+transition:0.3s;
 }
 
 .badge{
@@ -104,6 +114,7 @@ margin-top:20px;
 height:100%;
 width:0%;
 background:#2563eb;
+transition:0.2s;
 }
 
 table{
@@ -121,11 +132,52 @@ th,td{
 padding:12px;
 border-bottom:1px solid #ddd;
 text-align:left;
+transition:0.2s;
+}
+
+tr:hover{
+background:rgba(59,130,246,0.1);
 }
 
 .success{color:green;font-weight:bold;}
 .failed{color:red;font-weight:bold;}
 .loading{color:#2563eb;font-weight:bold;}
+
+/* ================= DARK MODE ================= */
+
+body.dark{
+background:#0f172a;
+color:#e5e7eb;
+}
+
+body.dark .container{
+background:#111827;
+color:#e5e7eb;
+}
+
+body.dark textarea,
+body.dark input{
+background:#1f2937;
+color:white;
+border-color:#374151;
+}
+
+body.dark table thead{
+background:#1f2937;
+}
+
+body.dark td{
+border-color:#374151;
+}
+
+body.dark .stats{
+background:#0b1220;
+border-color:#1f2937;
+}
+
+body.dark .badge{
+background:#1f2937;
+}
 
 </style>
 </head>
@@ -144,13 +196,14 @@ text-align:left;
 <div class="controls">
 <button id="checkBtn">Check IPs</button>
 <button id="downloadBtn">Download CSV</button>
+<button id="themeBtn">🌙 Dark Mode</button>
 </div>
 
 <div class="search-box">
 <input type="text" id="searchInput" placeholder="Search IP / ISP / Country">
 </div>
 
-<!-- ================= STATS PRO ================= -->
+<!-- STATS -->
 <div class="stats">
 
 <h2>📊 Intelligence Stats</h2>
@@ -202,6 +255,9 @@ text-align:left;
 <script>
 
 const checkBtn=document.getElementById("checkBtn");
+const downloadBtn=document.getElementById("downloadBtn");
+const themeBtn=document.getElementById("themeBtn");
+
 const results=document.getElementById("results");
 
 const totalEl=document.getElementById("total");
@@ -220,25 +276,43 @@ const searchInput=document.getElementById("searchInput");
 let csvRows=[];
 const cache={};
 
+// ================= THEME =================
+themeBtn.addEventListener("click",()=>{
+
+document.body.classList.toggle("dark");
+
+if(document.body.classList.contains("dark")){
+themeBtn.textContent="☀ Light Mode";
+localStorage.setItem("theme","dark");
+}else{
+themeBtn.textContent="🌙 Dark Mode";
+localStorage.setItem("theme","light");
+}
+
+});
+
+if(localStorage.getItem("theme")==="dark"){
+document.body.classList.add("dark");
+themeBtn.textContent="☀ Light Mode";
+}
+
 // ================= FETCH =================
 async function fetchAPI(url){
 try{
 let r=await fetch(url);
 if(!r.ok) return null;
 return await r.json();
-}catch{
-return null;
-}
+}catch{return null;}
 }
 
-// ================= IP ENGINE =================
+// ================= IP =================
 async function getIP(ip){
 
 if(cache[ip]) return cache[ip];
 
 let d=await fetchAPI(`https://ipwho.is/${ip}`);
 
-if(d && d.success===true){
+if(d && d.success){
 
 return cache[ip]={
 ip,
@@ -247,23 +321,6 @@ isp:d.connection?.isp||"Unknown",
 org:d.connection?.org||"Unknown",
 asn:d.connection?.asn||"Unknown",
 country:d.country||"",
-region:d.region||"",
-city:d.city||"",
-message:"OK"
-};
-}
-
-d=await fetchAPI(`https://ipapi.co/${ip}/json/`);
-
-if(d && !d.error){
-
-return cache[ip]={
-ip,
-status:"Success",
-isp:d.org||"Unknown",
-org:d.org||"Unknown",
-asn:d.asn||"N/A",
-country:d.country_name||"",
 region:d.region||"",
 city:d.city||"",
 message:"OK"
@@ -309,29 +366,25 @@ return await getIP(ip);
 );
 }
 
-// ================= STATS ENGINE =================
+// ================= STATS =================
 function updateStats(data){
 
-let countries={}, isps={}, asns={};
+let c={}, i={}, a={};
 let success=0;
 
 data.forEach(d=>{
 
 if(d.status==="Success"){
 success++;
-
-countries[d.country]=(countries[d.country]||0)+1;
-isps[d.isp]=(isps[d.isp]||0)+1;
-asns[d.asn]=(asns[d.asn]||0)+1;
+c[d.country]=(c[d.country]||0)+1;
+i[d.isp]=(i[d.isp]||0)+1;
+a[d.asn]=(a[d.asn]||0)+1;
 }
 
 });
 
-// rate
-let rate=data.length?((success/data.length)*100).toFixed(1):0;
-rateEl.textContent=rate+"%";
+rateEl.textContent=data.length?((success/data.length)*100).toFixed(1)+"%":"0%";
 
-// helper render
 function render(obj,el){
 
 el.innerHTML="";
@@ -343,16 +396,16 @@ Object.entries(obj)
 
 let div=document.createElement("div");
 div.className="badge";
-div.innerText=`${k}: ${v}`;
+div.textContent=`${k}: ${v}`;
 el.appendChild(div);
 
 });
 
 }
 
-render(countries,countriesStats);
-render(isps,ispStats);
-render(asns,asnStats);
+render(c,countriesStats);
+render(i,ispStats);
+render(a,asnStats);
 
 }
 
@@ -430,7 +483,7 @@ updateStats(csvRows);
 });
 
 // ================= CSV =================
-document.getElementById("downloadBtn").addEventListener("click",()=>{
+downloadBtn.addEventListener("click",()=>{
 
 let csv="IP,Status,ISP,Org,ASN,Country,Region,City,Message\n";
 
