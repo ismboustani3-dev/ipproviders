@@ -1,28 +1,124 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>FINAL BOSS IP SYSTEM</title>
+<title>IP Checker Pro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
 <style>
-body{font-family:Arial;background:#0b1220;color:white;padding:20px}
-.container{max-width:1400px;margin:auto;background:#111827;padding:15px;border-radius:10px}
 
-textarea{width:100%;height:120px;padding:10px}
+body{
+margin:0;
+font-family:Arial;
+background:#f5f6fa;
+transition:.3s;
+}
 
-button,select{padding:8px;margin:5px;cursor:pointer}
+.dark{
+background:#0f172a;
+color:white;
+}
 
-table{width:100%;border-collapse:collapse;margin-top:15px}
-td,th{padding:8px;border-bottom:1px solid #333}
+.container{
+max-width:1000px;
+margin:auto;
+padding:20px;
+}
 
-.success{color:#22c55e}
-.failed{color:#ef4444}
+.card{
+background:white;
+padding:15px;
+border-radius:12px;
+box-shadow:0 2px 10px rgba(0,0,0,0.1);
+}
 
-.badge{padding:3px 8px;border-radius:10px;background:#2563eb;font-size:12px}
+.dark .card{
+background:#111827;
+}
 
-.top{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+textarea{
+width:100%;
+height:120px;
+padding:10px;
+border-radius:8px;
+border:1px solid #ccc;
+}
 
-canvas{background:#0f172a;margin-top:15px;border-radius:10px}
+.dark textarea{
+background:#1f2937;
+color:white;
+border:none;
+}
+
+button{
+padding:10px 14px;
+border:none;
+border-radius:6px;
+cursor:pointer;
+margin:5px;
+font-weight:bold;
+}
+
+.btn{
+background:#2563eb;
+color:white;
+}
+
+.red{background:#ef4444;color:white;}
+.gray{background:#6b7280;color:white;}
+.green{background:#10b981;color:white;}
+
+.controls{
+display:flex;
+flex-wrap:wrap;
+gap:10px;
+margin-top:10px;
+}
+
+table{
+width:100%;
+margin-top:15px;
+border-collapse:collapse;
+}
+
+th,td{
+padding:10px;
+border-bottom:1px solid #ddd;
+text-align:left;
+}
+
+.success{color:green;font-weight:bold;}
+.failed{color:red;font-weight:bold;}
+
+.badge{
+padding:3px 8px;
+background:#111;
+color:white;
+border-radius:10px;
+font-size:12px;
+}
+
+.dark .badge{background:white;color:black;}
+
+.top{
+display:flex;
+justify-content:space-between;
+align-items:center;
+margin-bottom:10px;
+}
+
+input,select{
+padding:8px;
+border-radius:6px;
+border:1px solid #ccc;
+}
+
+.dark input,.dark select{
+background:#1f2937;
+color:white;
+border:none;
+}
+
 </style>
 </head>
 
@@ -30,216 +126,146 @@ canvas{background:#0f172a;margin-top:15px;border-radius:10px}
 
 <div class="container">
 
-<h2>👑 FINAL BOSS IP INTELLIGENCE</h2>
+<div class="card">
 
 <div class="top">
+<h2>IP Checker Pro ⚡</h2>
+<button class="gray" onclick="toggleDark()">🌙</button>
+</div>
 
-<button onclick="start()">START BOSS</button>
-<button onclick="clearAll()">RESET</button>
-<button onclick="exportCSV()">CSV</button>
-<button onclick="toggleDark()">DARK</button>
+<textarea id="ips">8.8.8.8
+1.1.1.1
+104.26.10.78
+172.67.73.21</textarea>
+
+<div class="controls">
+
+<button class="btn" onclick="checkIPs()">Check</button>
+<button class="green" onclick="exportCSV()">CSV</button>
+<button class="gray" onclick="clearAll()">Clear</button>
 
 <select id="filter" onchange="render()">
-<option value="all">ALL</option>
-<option value="success">SUCCESS</option>
-<option value="failed">FAILED</option>
+<option value="all">All</option>
+<option value="success">Success</option>
+<option value="failed">Failed</option>
 </select>
 
-<small id="stats">0</small>
+<input id="search" placeholder="Search..." onkeyup="render()">
 
 </div>
 
-<textarea id="input">8.8.8.8
-1.1.1.1
-104.26.10.78
-172.67.73.21
-151.101.1.69</textarea>
+<p>
+Total: <span id="total">0</span> |
+Success: <span id="ok">0</span> |
+Failed: <span id="bad">0</span>
+</p>
 
 <table>
 <thead>
 <tr>
 <th>IP</th>
 <th>Status</th>
-<th>ISP</th>
+<th>Provider</th>
 <th>Country</th>
-<th>Risk</th>
 </tr>
 </thead>
 <tbody id="out"></tbody>
 </table>
 
-<canvas id="chart" height="120"></canvas>
+</div>
 
 </div>
 
 <script>
 
-let data = JSON.parse(localStorage.getItem("boss_ips")||"[]");
-
-function save(){
-localStorage.setItem("boss_ips",JSON.stringify(data));
-}
-
-// ===== Risk Engine (Boss AI) =====
-function risk(isp=""){
-isp=isp.toLowerCase();
-let r=10;
-
-if(isp.includes("amazon"))r+=10;
-if(isp.includes("google"))r+=10;
-if(isp.includes("microsoft"))r+=10;
-
-if(isp.includes("hosting"))r+=30;
-if(isp.includes("server"))r+=30;
-if(isp.includes("datacenter"))r+=40;
-
-return Math.min(r,100);
-}
-
-// ===== Worker Engine (parallel fake workers) =====
-function worker(ip){
-return new Promise(async res=>{
-try{
-let r=await fetch("https://ipwho.is/"+ip);
-let d=await r.json();
-
-if(d.success){
-res({
-ip,
-status:"Success",
-isp:d.connection?.isp||"Unknown",
-country:d.country||"",
-risk:risk(d.connection?.isp||"")
-});
-return;
-}
-}catch{}
-
-res({ip,status:"Failed",isp:"Error",country:"",risk:100});
-});
-}
-
-// ===== BOSS PIPELINE =====
-async function start(){
-
-let ips=document.getElementById("input")
-.value.split("\n").map(x=>x.trim()).filter(Boolean);
-
-data=[];
-
-let queue=[];
-
-// streaming system (no freeze)
-for(let ip of ips){
-
-queue.push(ip);
-
-if(queue.length>=5){
-await process(queue);
-queue=[];
-}
-}
-
-if(queue.length) await process(queue);
-
-save();
-render();
-drawChart();
-}
-
-// batch processor
-async function process(batch){
-
-let tasks=batch.map(ip=>{
-return worker(ip);
-});
-
-let res=await Promise.all(tasks);
-data.push(...res);
-updateStats();
-render();
-}
-
-// ===== UI =====
-function render(){
-
-let f=document.getElementById("filter").value;
-let out=document.getElementById("out");
-out.innerHTML="";
-
-let list=data.filter(x=>{
-if(f==="all")return true;
-return x.status.toLowerCase()===f;
-});
-
-list.forEach(x=>{
-out.innerHTML+=`
-<tr>
-<td>${x.ip}</td>
-<td class="${x.status==="Success"?"success":"failed"}">${x.status}</td>
-<td>${x.isp}</td>
-<td>${x.country}</td>
-<td><span class="badge">${x.risk}</span></td>
-</tr>`;
-});
-}
-
-function updateStats(){
-document.getElementById("stats").innerText=
-`TOTAL:${data.length} | OK:${data.filter(x=>x.status==="Success").length} | FAIL:${data.filter(x=>x.status==="Failed").length}`;
-}
-
-// ===== SIMPLE RISK GRAPH =====
-function drawChart(){
-
-let c=document.getElementById("chart");
-let ctx=c.getContext("2d");
-
-ctx.clearRect(0,0,c.width,c.height);
-
-let max=100;
-let w=10;
-
-data.slice(0,50).forEach((x,i)=>{
-
-let h=(x.risk/max)*100;
-
-ctx.fillStyle="#3b82f6";
-ctx.fillRect(i*w,100-h,w-2,h);
-
-});
-
-}
-
-// ===== EXPORT =====
-function exportCSV(){
-let c="IP,Status,ISP,Country,Risk\n";
-data.forEach(x=>{
-c+=`${x.ip},${x.status},${x.isp},${x.country},${x.risk}\n`;
-});
-let b=new Blob([c],{type:"text/csv"});
-let a=document.createElement("a");
-a.href=URL.createObjectURL(b);
-a.download="boss_ips.csv";
-a.click();
-}
-
-// ===== CLEAR =====
-function clearAll(){
-data=[];
-save();
-render();
-drawChart();
-updateStats();
-}
+let data = [];
 
 function toggleDark(){
 document.body.classList.toggle("dark");
 }
 
+async function fetchIP(ip){
+
+try{
+let r = await fetch("https://ipwho.is/"+ip);
+let d = await r.json();
+
+if(d.success){
+return{
+ip,
+status:"Success",
+provider:d.connection?.isp || "Unknown",
+country:d.country || ""
+};
+}
+}catch{}
+
+return{ip,status:"Failed",provider:"Error",country:""};
+}
+
+async function checkIPs(){
+
+let ips = document.getElementById("ips")
+.value.split("\n").map(x=>x.trim()).filter(Boolean);
+
+data = [];
+
+for(let ip of ips){
+let res = await fetchIP(ip);
+data.push(res);
+}
+
 render();
-updateStats();
-drawChart();
+}
+
+function render(){
+
+let filter = document.getElementById("filter").value;
+let search = document.getElementById("search").value.toLowerCase();
+
+let out = document.getElementById("out");
+out.innerHTML = "";
+
+let list = data.filter(x=>{
+
+let f = filter==="all" || x.status.toLowerCase()===filter;
+let s = x.ip.includes(search) || x.provider.toLowerCase().includes(search);
+
+return f && s;
+});
+
+list.forEach(x=>{
+out.innerHTML += `
+<tr>
+<td>${x.ip}</td>
+<td class="${x.status==="Success"?"success":"failed"}">${x.status}</td>
+<td>${x.provider}</td>
+<td>${x.country}</td>
+</tr>`;
+});
+
+document.getElementById("total").innerText = data.length;
+document.getElementById("ok").innerText = data.filter(x=>x.status==="Success").length;
+document.getElementById("bad").innerText = data.filter(x=>x.status==="Failed").length;
+}
+
+function clearAll(){
+data=[];
+render();
+}
+
+function exportCSV(){
+let csv="IP,Status,Provider,Country\n";
+data.forEach(x=>{
+csv+=`${x.ip},${x.status},${x.provider},${x.country}\n`;
+});
+
+let b=new Blob([csv],{type:"text/csv"});
+let a=document.createElement("a");
+a.href=URL.createObjectURL(b);
+a.download="ips.csv";
+a.click();
+}
 
 </script>
 
