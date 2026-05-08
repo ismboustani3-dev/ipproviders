@@ -1,77 +1,17 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>IP Intelligence Dashboard</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
+<title>Fixed IP Checker</title>
 <style>
-
-body{
-margin:0;
-font-family:Arial;
-background:#0b1220;
-color:white;
-padding:20px;
-}
-
-.container{
-max-width:1400px;
-margin:auto;
-}
-
-.card{
-background:#111827;
-padding:15px;
-border-radius:12px;
-margin-bottom:15px;
-}
-
-textarea{
-width:100%;
-height:120px;
-padding:10px;
-border-radius:10px;
-border:none;
-background:#1f2937;
-color:white;
-}
-
-button{
-padding:10px 14px;
-border:none;
-border-radius:8px;
-cursor:pointer;
-font-weight:bold;
-background:#3b82f6;
-color:white;
-margin-top:10px;
-}
-
-table{
-width:100%;
-border-collapse:collapse;
-margin-top:15px;
-}
-
-th{
-background:#1f2937;
-padding:10px;
-text-align:left;
-font-size:13px;
-}
-
-td{
-padding:10px;
-border-bottom:1px solid #1f2937;
-font-size:13px;
-}
-
-.success{color:#22c55e;font-weight:bold;}
-.failed{color:#ef4444;font-weight:bold;}
-
-small{opacity:.7}
-
+body{font-family:Arial;background:#0b1220;color:white;padding:20px}
+.container{max-width:1200px;margin:auto}
+textarea{width:100%;height:120px;padding:10px}
+button{padding:10px 14px;margin-top:10px;background:#3b82f6;color:white;border:none;border-radius:8px;cursor:pointer}
+table{width:100%;margin-top:15px;border-collapse:collapse}
+th,td{padding:10px;border-bottom:1px solid #1f2937;font-size:13px}
+.success{color:#22c55e;font-weight:bold}
+.failed{color:#ef4444;font-weight:bold}
 </style>
 </head>
 
@@ -79,29 +19,21 @@ small{opacity:.7}
 
 <div class="container">
 
-<div class="card">
-
-<h2>🚀 IP Intelligence Dashboard</h2>
+<h2>🚀 FIXED IP CHECKER</h2>
 
 <textarea id="ips">8.8.8.8
 1.1.1.1
-104.26.10.78
-172.67.73.21</textarea>
+104.26.10.78</textarea>
 
-<button onclick="check()">RUN CHECK</button>
-
-<small id="stats">0 IPs</small>
-
-</div>
+<button onclick="run()">CHECK</button>
 
 <table>
-
 <thead>
 <tr>
 <th>IP</th>
 <th>Status</th>
 <th>ISP</th>
-<th>Organization</th>
+<th>Org</th>
 <th>ASN</th>
 <th>Country</th>
 <th>Region</th>
@@ -111,41 +43,45 @@ small{opacity:.7}
 </thead>
 
 <tbody id="out"></tbody>
-
 </table>
 
 </div>
 
 <script>
 
-let data=[];
+async function fetchWithFallback(ip){
 
-async function getIP(ip){
-
+// API 1
 try{
+let r = await fetch("https://ipwho.is/"+ip);
+let d = await r.json();
 
-let r=await fetch("https://ipwho.is/"+ip);
-let d=await r.json();
+if(d && d.success){
+return build(ip,d);
+}
+}catch(e){}
 
-if(d.success){
+// API 2 fallback
+try{
+let r = await fetch("https://ipapi.co/"+ip+"/json/");
+let d = await r.json();
 
-return{
+if(d && !d.error){
+return {
 ip,
 status:"Success",
-isp:d.connection?.isp || "N/A",
-org:d.connection?.org || "N/A",
-asn:d.connection?.asn || "N/A",
-country:d.country || "",
-region:d.region || "",
-city:d.city || "",
-msg:"OK"
+isp:d.org||"N/A",
+org:d.org||"N/A",
+asn:d.asn||"N/A",
+country:d.country_name||"",
+region:d.region||"",
+city:d.city||"",
+msg:"OK (API2)"
 };
-
 }
+}catch(e){}
 
-}catch{}
-
-return{
+return {
 ip,
 status:"Failed",
 isp:"N/A",
@@ -154,47 +90,49 @@ asn:"N/A",
 country:"",
 region:"",
 city:"",
-msg:"Error / Invalid"
+msg:"No data / blocked"
 };
-
 }
 
-async function check(){
+function build(ip,d){
+return{
+ip,
+status:"Success",
+isp:d.connection?.isp||"N/A",
+org:d.connection?.org||"N/A",
+asn:d.connection?.asn||"N/A",
+country:d.country||"",
+region:d.region||"",
+city:d.city||"",
+msg:"OK"
+};
+}
+
+async function run(){
 
 let ips=document.getElementById("ips")
 .value.split("\n").map(x=>x.trim()).filter(Boolean);
 
-data=[];
-
-for(let ip of ips){
-data.push(await getIP(ip));
-}
-
-render();
-
-document.getElementById("stats").innerText =
-`${data.length} IPs checked`;
-}
-
-function render(){
-
 let out=document.getElementById("out");
 out.innerHTML="";
 
-data.forEach(x=>{
-out.innerHTML+=`
+for(let ip of ips){
+
+let r = await fetchWithFallback(ip);
+
+out.innerHTML += `
 <tr>
-<td>${x.ip}</td>
-<td class="${x.status==="Success"?"success":"failed"}">${x.status}</td>
-<td>${x.isp}</td>
-<td>${x.org}</td>
-<td>${x.asn}</td>
-<td>${x.country}</td>
-<td>${x.region}</td>
-<td>${x.city}</td>
-<td>${x.msg}</td>
+<td>${r.ip}</td>
+<td class="${r.status==="Success"?"success":"failed"}">${r.status}</td>
+<td>${r.isp}</td>
+<td>${r.org}</td>
+<td>${r.asn}</td>
+<td>${r.country}</td>
+<td>${r.region}</td>
+<td>${r.city}</td>
+<td>${r.msg}</td>
 </tr>`;
-});
+}
 
 }
 
