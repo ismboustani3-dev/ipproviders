@@ -4,102 +4,77 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Advanced IP Provider Checker</title>
+<title>IP Provider Checker</title>
 
 <style>
 
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
 body{
     font-family:Arial,sans-serif;
-    background:#f3f4f6;
-    padding:20px;
-    margin:0;
+    background:#f5f5f5;
+    padding:25px;
 }
 
 .container{
-    max-width:1500px;
-    margin:auto;
+    width:100%;
     background:white;
     padding:20px;
-    border-radius:10px;
-    box-shadow:0 0 10px rgba(0,0,0,0.1);
+    border-radius:8px;
 }
 
 h1{
-    margin-bottom:20px;
-    color:#111827;
+    margin-bottom:15px;
+    color:#000;
+}
+
+.label{
+    margin-bottom:10px;
+    color:#444;
 }
 
 textarea{
     width:100%;
-    height:220px;
-    padding:12px;
+    height:170px;
     border:1px solid #ccc;
     border-radius:6px;
-    resize:vertical;
+    padding:10px;
     font-size:14px;
-    box-sizing:border-box;
+    resize:vertical;
+}
+
+.buttons{
+    margin-top:18px;
+    display:flex;
+    align-items:center;
+    gap:10px;
 }
 
 button{
-    padding:10px 20px;
     border:none;
-    border-radius:6px;
-    cursor:pointer;
-    margin-top:15px;
-    font-size:14px;
-    transition:0.2s;
-}
-
-button:hover{
-    opacity:0.9;
-}
-
-.check{
-    background:#2563eb;
-    color:white;
-}
-
-.download{
-    background:#111827;
-    color:white;
-    margin-left:10px;
-}
-
-input{
-    padding:10px;
-    border:1px solid #ccc;
-    border-radius:6px;
-    margin-top:15px;
-    width:300px;
-    font-size:14px;
-}
-
-.progress-container{
-    width:100%;
-    height:25px;
-    background:#ddd;
-    border-radius:30px;
-    margin-top:20px;
-    overflow:hidden;
-}
-
-.progress-bar{
-    height:100%;
-    width:0%;
-    background:#2563eb;
-    transition:0.2s;
-    text-align:center;
-    color:white;
-    line-height:25px;
-    font-size:13px;
-}
-
-.stats{
-    margin-top:20px;
-    padding:15px;
-    background:#f9fafb;
+    padding:10px 20px;
     border-radius:8px;
-    border:1px solid #ddd;
+    cursor:pointer;
+    color:white;
+    font-weight:bold;
+    font-size:14px;
+}
+
+.check-btn{
+    background:#2563eb;
+}
+
+.download-btn{
+    background:#0f172a;
+}
+
+.tip{
+    color:#666;
+    font-size:14px;
 }
 
 table{
@@ -109,14 +84,15 @@ table{
 }
 
 th{
-    background:#111827;
+    background:#0f172a;
     color:white;
-    padding:12px;
+    padding:12px 10px;
     text-align:left;
+    font-size:14px;
 }
 
 td{
-    padding:10px;
+    padding:12px 10px;
     border-bottom:1px solid #ddd;
     font-size:14px;
 }
@@ -126,9 +102,39 @@ td{
     font-weight:bold;
 }
 
-.error{
+.failed{
     color:red;
     font-weight:bold;
+}
+
+.footer{
+    text-align:center;
+    margin-top:18px;
+    font-size:14px;
+}
+
+.footer b{
+    color:#000;
+}
+
+.progress-container{
+    width:100%;
+    height:22px;
+    background:#ddd;
+    border-radius:30px;
+    overflow:hidden;
+    margin-top:20px;
+}
+
+.progress-bar{
+    width:0%;
+    height:100%;
+    background:#2563eb;
+    color:white;
+    text-align:center;
+    line-height:22px;
+    font-size:12px;
+    transition:0.2s;
 }
 
 </style>
@@ -138,37 +144,48 @@ td{
 
 <div class="container">
 
-    <h1>Advanced IP Provider Checker</h1>
+    <h1>IP Provider Checker</h1>
 
-    <textarea
-        id="ips"
-        placeholder="1.1.1.1&#10;8.8.8.8"
-    ></textarea>
+    <div class="label">
+        Paste IP addresses (one per line)
+    </div>
 
-    <br>
+    <textarea id="ips">
 
-    <button
-        class="check"
-        onclick="checkIPs()"
-    >
-        Start Check
-    </button>
+54.38.193.115
+54.37.82.44
+37.123.98.2
+104.206.148.58
+192.99.198.53
+170.130.202.238
+51.81.187.39
+5.135.109.51
+51.195.146.50
+104.206.108.50
 
-    <button
-        class="download"
-        onclick="downloadCSV()"
-    >
-        Download CSV
-    </button>
+    </textarea>
 
-    <br>
+    <div class="buttons">
 
-    <input
-        type="text"
-        id="search"
-        placeholder="Search provider / country / region"
-        onkeyup="filterResults()"
-    >
+        <button
+            class="check-btn"
+            onclick="checkIPs()"
+        >
+            Check
+        </button>
+
+        <button
+            class="download-btn"
+            onclick="downloadCSV()"
+        >
+            Download CSV
+        </button>
+
+        <div class="tip">
+            Tip: You can paste comma-separated IPs too.
+        </div>
+
+    </div>
 
     <div class="progress-container">
 
@@ -181,25 +198,6 @@ td{
 
     </div>
 
-    <div class="stats">
-
-        <p>
-            Checked:
-            <span id="checked">0</span>
-        </p>
-
-        <p>
-            Success:
-            <span id="success">0</span>
-        </p>
-
-        <p>
-            Failed:
-            <span id="failed">0</span>
-        </p>
-
-    </div>
-
     <table>
 
         <thead>
@@ -207,10 +205,13 @@ td{
             <tr>
                 <th>IP</th>
                 <th>Status</th>
-                <th>Provider</th>
+                <th>ISP</th>
+                <th>Organization</th>
+                <th>ASN</th>
                 <th>Country</th>
                 <th>Region</th>
                 <th>City</th>
+                <th>Message</th>
             </tr>
 
         </thead>
@@ -218,6 +219,10 @@ td{
         <tbody id="tbody"></tbody>
 
     </table>
+
+    <div class="footer">
+        @By <b>WMN-3</b>
+    </div>
 
 </div>
 
@@ -231,8 +236,8 @@ async function checkIPs(){
         .getElementById("ips")
         .value
         .split(/\n|,/)
-        .map(x => x.trim())
-        .filter(x => x);
+        .map(ip => ip.trim())
+        .filter(ip => ip);
 
     if(!ips.length){
 
@@ -241,21 +246,11 @@ async function checkIPs(){
         return;
     }
 
-    results = [];
-
     document.getElementById("tbody").innerHTML = "";
 
+    results = [];
+
     let checked = 0;
-    let success = 0;
-    let failed = 0;
-
-    updateStats(
-        checked,
-        success,
-        failed
-    );
-
-    updateProgress(0);
 
     for(const ip of ips){
 
@@ -269,18 +264,25 @@ async function checkIPs(){
 
             checked++;
 
-            if(data.success !== false){
+            updateProgress(
+                Math.floor(
+                    (checked / ips.length) * 100
+                )
+            );
 
-                success++;
+            if(data.success !== false){
 
                 const row = {
 
                     ip:data.ip || ip,
                     status:"Success",
-                    provider:data.connection?.isp || "Unknown",
+                    isp:data.connection?.isp || "-",
+                    org:data.connection?.org || "-",
+                    asn:data.connection?.asn || "-",
                     country:data.country || "-",
                     region:data.region || "-",
-                    city:data.city || "-"
+                    city:data.city || "-",
+                    message:"OK"
                 };
 
                 results.push(row);
@@ -289,34 +291,14 @@ async function checkIPs(){
 
             }else{
 
-                failed++;
-
-                addErrorRow(ip);
+                addError(ip);
             }
 
-        }catch(error){
+        }catch(e){
 
-            checked++;
-
-            failed++;
-
-            addErrorRow(ip);
+            addError(ip);
         }
-
-        updateStats(
-            checked,
-            success,
-            failed
-        );
-
-        updateProgress(
-            Math.floor(
-                (checked / ips.length) * 100
-            )
-        );
     }
-
-    alert("Check Finished");
 }
 
 function addRow(row){
@@ -328,10 +310,14 @@ function addRow(row){
         <td>${row.ip}</td>
 
         <td class="success">
-            Success
+            ${row.status}
         </td>
 
-        <td>${row.provider}</td>
+        <td>${row.isp}</td>
+
+        <td>${row.org}</td>
+
+        <td>${row.asn}</td>
 
         <td>${row.country}</td>
 
@@ -339,12 +325,14 @@ function addRow(row){
 
         <td>${row.city}</td>
 
+        <td>${row.message}</td>
+
     </tr>
 
     `;
 }
 
-function addErrorRow(ip){
+function addError(ip){
 
     document.getElementById("tbody").innerHTML += `
 
@@ -352,11 +340,11 @@ function addErrorRow(ip){
 
         <td>${ip}</td>
 
-        <td class="error">
+        <td class="failed">
             Failed
         </td>
 
-        <td colspan="4">
+        <td colspan="7">
             API Error / Invalid IP
         </td>
 
@@ -377,49 +365,6 @@ function updateProgress(percent){
         percent + "%";
 }
 
-function updateStats(
-    checked,
-    success,
-    failed
-){
-
-    document.getElementById("checked")
-        .innerText = checked;
-
-    document.getElementById("success")
-        .innerText = success;
-
-    document.getElementById("failed")
-        .innerText = failed;
-}
-
-function filterResults(){
-
-    const value =
-        document.getElementById("search")
-        .value
-        .toLowerCase();
-
-    const rows =
-        document.querySelectorAll("#tbody tr");
-
-    rows.forEach(row => {
-
-        if(
-            row.innerText
-            .toLowerCase()
-            .includes(value)
-        ){
-
-            row.style.display = "";
-
-        }else{
-
-            row.style.display = "none";
-        }
-    });
-}
-
 function downloadCSV(){
 
     if(!results.length){
@@ -430,12 +375,12 @@ function downloadCSV(){
     }
 
     let csv =
-`IP,Status,Provider,Country,Region,City\n`;
+`IP,Status,ISP,Organization,ASN,Country,Region,City,Message\n`;
 
     results.forEach(r => {
 
         csv +=
-`${r.ip},${r.status},${r.provider},${r.country},${r.region},${r.city}\n`;
+`${r.ip},${r.status},${r.isp},${r.org},${r.asn},${r.country},${r.region},${r.city},${r.message}\n`;
 
     });
 
@@ -461,6 +406,8 @@ function downloadCSV(){
 
     URL.revokeObjectURL(url);
 }
+
+window.onload = checkIPs;
 
 </script>
 
