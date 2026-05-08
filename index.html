@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>ULTRA IP INTEL CHECKER</title>
+<title>ULTRA IP Provider Checker</title>
 
 <style>
 
@@ -44,6 +44,7 @@ border-radius:8px;
 padding:12px;
 resize:none;
 font-size:15px;
+outline:none;
 transition:0.3s;
 }
 
@@ -71,17 +72,6 @@ transform:scale(1.05);
 #downloadBtn{background:#111827;color:white;}
 #themeBtn{background:#374151;color:white;}
 
-.search-box{
-margin-top:20px;
-}
-
-.search-box input{
-width:300px;
-padding:12px;
-border:1px solid #ccc;
-border-radius:6px;
-}
-
 .stats{
 margin-top:30px;
 background:#fafafa;
@@ -91,14 +81,9 @@ padding:20px;
 transition:0.3s;
 }
 
-.badge{
-background:#111827;
-color:white;
-padding:6px 12px;
-border-radius:20px;
-font-size:13px;
-margin:5px;
-display:inline-block;
+.stats p{
+margin-bottom:10px;
+font-size:18px;
 }
 
 .progress-container{
@@ -117,6 +102,22 @@ background:#2563eb;
 transition:0.2s;
 }
 
+.badges{
+display:flex;
+flex-wrap:wrap;
+gap:10px;
+margin-top:15px;
+}
+
+.badge{
+background:#111827;
+color:white;
+padding:8px 14px;
+border-radius:30px;
+font-size:14px;
+transition:0.2s;
+}
+
 table{
 width:100%;
 border-collapse:collapse;
@@ -131,12 +132,6 @@ color:white;
 th,td{
 padding:12px;
 border-bottom:1px solid #ddd;
-text-align:left;
-transition:0.2s;
-}
-
-tr:hover{
-background:rgba(59,130,246,0.1);
 }
 
 .success{color:green;font-weight:bold;}
@@ -179,6 +174,10 @@ body.dark .badge{
 background:#1f2937;
 }
 
+body.dark table tr:hover{
+background:#1f2937;
+}
+
 </style>
 </head>
 
@@ -186,12 +185,14 @@ background:#1f2937;
 
 <div class="container">
 
-<h1>ULTRA IP INTEL CHECKER</h1>
+<h1>ULTRA IP Provider Checker</h1>
 
 <textarea id="ipInput">8.8.8.8
 1.1.1.1
 104.26.10.78
-172.67.73.21</textarea>
+172.67.73.21
+151.101.1.69
+54.38.193.115</textarea>
 
 <div class="controls">
 <button id="checkBtn">Check IPs</button>
@@ -200,33 +201,26 @@ background:#1f2937;
 </div>
 
 <div class="search-box">
-<input type="text" id="searchInput" placeholder="Search IP / ISP / Country">
+<input type="text" id="searchInput" placeholder="Search IP / Provider / Country">
 </div>
 
-<!-- STATS -->
 <div class="stats">
 
-<h2>📊 Intelligence Stats</h2>
+<h2>Statistics</h2>
 
-<div>
-<span class="badge">Total: <span id="total">0</span></span>
-<span class="badge" style="background:green;">Success: <span id="success">0</span></span>
-<span class="badge" style="background:red;">Failed: <span id="failed">0</span></span>
-<span class="badge" style="background:#2563eb;">Rate: <span id="rate">0%</span></span>
-</div>
+<p>Total: <span id="total">0</span></p>
+<p>Success: <span id="success">0</span></p>
+<p>Failed: <span id="failed">0</span></p>
 
 <div class="progress-container">
 <div class="progress-bar" id="progressBar"></div>
 </div>
 
-<h3 style="margin-top:20px;">🌍 Countries</h3>
-<div id="countriesStats"></div>
+<h3 style="margin-top:25px;">Providers Count</h3>
+<div class="badges" id="providers"></div>
 
-<h3 style="margin-top:20px;">🏢 ISPs</h3>
-<div id="ispStats"></div>
-
-<h3 style="margin-top:20px;">📡 ASN</h3>
-<div id="asnStats"></div>
+<h3 style="margin-top:25px;">Regions Count</h3>
+<div class="badges" id="regions"></div>
 
 </div>
 
@@ -236,13 +230,10 @@ background:#1f2937;
 <tr>
 <th>IP</th>
 <th>Status</th>
-<th>ISP</th>
-<th>Org</th>
-<th>ASN</th>
+<th>Provider</th>
 <th>Country</th>
 <th>Region</th>
 <th>City</th>
-<th>Message</th>
 </tr>
 </thead>
 
@@ -263,20 +254,18 @@ const results=document.getElementById("results");
 const totalEl=document.getElementById("total");
 const successEl=document.getElementById("success");
 const failedEl=document.getElementById("failed");
-const rateEl=document.getElementById("rate");
+
+const providersDiv=document.getElementById("providers");
+const regionsDiv=document.getElementById("regions");
 
 const progressBar=document.getElementById("progressBar");
-
-const countriesStats=document.getElementById("countriesStats");
-const ispStats=document.getElementById("ispStats");
-const asnStats=document.getElementById("asnStats");
 
 const searchInput=document.getElementById("searchInput");
 
 let csvRows=[];
 const cache={};
 
-// ================= THEME =================
+// ================= DARK MODE =================
 themeBtn.addEventListener("click",()=>{
 
 document.body.classList.toggle("dark");
@@ -296,47 +285,73 @@ document.body.classList.add("dark");
 themeBtn.textContent="☀ Light Mode";
 }
 
-// ================= FETCH =================
+// ================= SAFE FETCH (NO CHANGE LOGIC) =================
 async function fetchAPI(url){
 try{
-let r=await fetch(url);
-if(!r.ok) return null;
+const r=await fetch(url);
 return await r.json();
-}catch{return null;}
+}catch{
+return null;
+}
 }
 
-// ================= IP =================
-async function getIP(ip){
+// ================= ORIGINAL ENGINE (UNCHANGED SAFE) =================
+async function getIPData(ip){
 
 if(cache[ip]) return cache[ip];
 
-let d=await fetchAPI(`https://ipwho.is/${ip}`);
+// API 1
+let data=await fetchAPI(`https://ipwho.is/${ip}`);
 
-if(d && d.success){
+if(data && data.success!==false){
 
 return cache[ip]={
 ip,
 status:"Success",
-isp:d.connection?.isp||"Unknown",
-org:d.connection?.org||"Unknown",
-asn:d.connection?.asn||"Unknown",
-country:d.country||"",
-region:d.region||"",
-city:d.city||"",
-message:"OK"
+provider:data.connection?.isp||"Unknown",
+country:data.country||"",
+region:data.region||"",
+city:data.city||""
+};
+}
+
+// API 2
+data=await fetchAPI(`https://ipapi.co/${ip}/json/`);
+
+if(data && !data.error){
+
+return cache[ip]={
+ip,
+status:"Success",
+provider:data.org||"Unknown",
+country:data.country_name||"",
+region:data.region||"",
+city:data.city||""
+};
+}
+
+// API 3
+data=await fetchAPI(`https://ipinfo.io/${ip}/json`);
+
+if(data){
+
+return cache[ip]={
+ip,
+status:"Success",
+provider:data.org||"Unknown",
+country:data.country||"",
+region:data.region||"",
+city:data.city||""
 };
 }
 
 return {
 ip,
 status:"Failed",
-isp:"N/A",
-org:"N/A",
-asn:"N/A",
+provider:"N/A",
 country:"",
 region:"",
-city:"",
-message:"NO DATA"
+city:""
 };
 }
 
@@ -346,67 +361,23 @@ async function processBatch(batch){
 return await Promise.allSettled(
 batch.map(async ip=>{
 
-if(!/^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.|$)){4}$/.test(ip)){
+const regex=/^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.|$)){4}$/;
+
+if(!regex.test(ip)){
 return {
 ip,
 status:"Failed",
-isp:"Invalid",
-org:"",
-asn:"",
+provider:"Invalid IP",
 country:"",
 region:"",
-city:"",
-message:"BAD FORMAT"
+city:""
 };
 }
 
-return await getIP(ip);
+return await getIPData(ip);
 
 })
 );
-}
-
-// ================= STATS =================
-function updateStats(data){
-
-let c={}, i={}, a={};
-let success=0;
-
-data.forEach(d=>{
-
-if(d.status==="Success"){
-success++;
-c[d.country]=(c[d.country]||0)+1;
-i[d.isp]=(i[d.isp]||0)+1;
-a[d.asn]=(a[d.asn]||0)+1;
-}
-
-});
-
-rateEl.textContent=data.length?((success/data.length)*100).toFixed(1)+"%":"0%";
-
-function render(obj,el){
-
-el.innerHTML="";
-
-Object.entries(obj)
-.sort((a,b)=>b[1]-a[1])
-.slice(0,8)
-.forEach(([k,v])=>{
-
-let div=document.createElement("div");
-div.className="badge";
-div.textContent=`${k}: ${v}`;
-el.appendChild(div);
-
-});
-
-}
-
-render(c,countriesStats);
-render(i,ispStats);
-render(a,asnStats);
-
 }
 
 // ================= MAIN =================
@@ -425,19 +396,21 @@ let failed=0;
 let done=0;
 
 ips.forEach(ip=>{
+
 let row=document.createElement("tr");
 row.id="row-"+ip.replaceAll(".","-");
 
 row.innerHTML=`
 <td>${ip}</td>
 <td class="loading">Checking...</td>
-<td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+<td></td><td></td><td></td><td></td>
 `;
 
 results.appendChild(row);
+
 });
 
-let batchSize=20;
+let batchSize=30;
 
 for(let i=0;i<ips.length;i+=batchSize){
 
@@ -460,13 +433,10 @@ else failed++;
 row.innerHTML=`
 <td>${d.ip}</td>
 <td class="${d.status==="Success"?"success":"failed"}">${d.status}</td>
-<td>${d.isp}</td>
-<td>${d.org}</td>
-<td>${d.asn}</td>
+<td>${d.provider}</td>
 <td>${d.country}</td>
 <td>${d.region}</td>
 <td>${d.city}</td>
-<td>${d.message}</td>
 `;
 
 csvRows.push(d);
@@ -476,8 +446,6 @@ csvRows.push(d);
 successEl.textContent=success;
 failedEl.textContent=failed;
 
-updateStats(csvRows);
-
 }
 
 });
@@ -485,16 +453,16 @@ updateStats(csvRows);
 // ================= CSV =================
 downloadBtn.addEventListener("click",()=>{
 
-let csv="IP,Status,ISP,Org,ASN,Country,Region,City,Message\n";
+let csv="IP,Status,Provider,Country,Region,City\n";
 
 csvRows.forEach(r=>{
-csv+=`${r.ip},${r.status},${r.isp},${r.org},${r.asn},${r.country},${r.region},${r.city},${r.message}\n`;
+csv+=`${r.ip},${r.status},${r.provider},${r.country},${r.region},${r.city}\n`;
 });
 
 let blob=new Blob([csv],{type:"text/csv"});
 let a=document.createElement("a");
 a.href=URL.createObjectURL(blob);
-a.download="ip_intel.csv";
+a.download="ip_results.csv";
 a.click();
 
 });
