@@ -18,7 +18,6 @@ body{
 font-family:Arial,sans-serif;
 background:#f3f4f6;
 padding:20px;
-transition:0.3s;
 }
 
 .container{
@@ -28,7 +27,6 @@ background:white;
 padding:20px;
 border-radius:12px;
 box-shadow:0 2px 10px rgba(0,0,0,0.08);
-transition:0.3s;
 }
 
 h1{
@@ -59,16 +57,10 @@ border:none;
 border-radius:6px;
 cursor:pointer;
 font-weight:bold;
-transition:0.2s;
-}
-
-button:hover{
-transform:scale(1.05);
 }
 
 #checkBtn{background:#2563eb;color:white;}
 #downloadBtn{background:#111827;color:white;}
-#themeBtn{background:#374151;color:white;}
 
 .search-box{
 margin-top:20px;
@@ -87,17 +79,11 @@ background:#fafafa;
 border:1px solid #ddd;
 border-radius:10px;
 padding:20px;
-transition:0.3s;
 }
 
-.badge{
-background:#111827;
-color:white;
-padding:6px 12px;
-border-radius:20px;
-font-size:13px;
-margin:5px;
-display:inline-block;
+.stats p{
+font-size:18px;
+margin-bottom:10px;
 }
 
 .progress-container{
@@ -113,7 +99,6 @@ margin-top:20px;
 height:100%;
 width:0%;
 background:#2563eb;
-transition:0.2s;
 }
 
 table{
@@ -137,38 +122,14 @@ text-align:left;
 .failed{color:red;font-weight:bold;}
 .loading{color:#2563eb;font-weight:bold;}
 
-/* DARK MODE */
-body.dark{
-background:#0f172a;
-color:#e5e7eb;
-}
-
-body.dark .container{
+.badge{
 background:#111827;
-}
-
-body.dark textarea,
-body.dark input{
-background:#1f2937;
 color:white;
-border-color:#374151;
-}
-
-body.dark table thead{
-background:#1f2937;
-}
-
-body.dark td{
-border-color:#374151;
-}
-
-body.dark .stats{
-background:#0b1220;
-border-color:#1f2937;
-}
-
-body.dark .badge{
-background:#1f2937;
+padding:6px 12px;
+border-radius:20px;
+font-size:13px;
+margin:5px;
+display:inline-block;
 }
 
 </style>
@@ -188,24 +149,17 @@ background:#1f2937;
 <div class="controls">
 <button id="checkBtn">Check IPs</button>
 <button id="downloadBtn">Download CSV</button>
-<button id="themeBtn">🌙 Dark Mode</button>
 </div>
 
 <div class="search-box">
 <input type="text" id="searchInput" placeholder="Search IP / ISP / Country">
 </div>
 
-<!-- DASHBOARD -->
 <div class="stats">
 
-<h2>📊 LIVE DASHBOARD</h2>
-
-<div>
-<span class="badge">Total: <span id="total">0</span></span>
-<span class="badge" style="background:green;">Success: <span id="success">0</span></span>
-<span class="badge" style="background:red;">Failed: <span id="failed">0</span></span>
-<span class="badge" style="background:#2563eb;">Progress: <span id="progressText">0%</span></span>
-</div>
+<p>Total: <span id="total">0</span></p>
+<p>Success: <span id="success">0</span></p>
+<p>Failed: <span id="failed">0</span></p>
 
 <div class="progress-container">
 <div class="progress-bar" id="progressBar"></div>
@@ -238,9 +192,6 @@ background:#1f2937;
 <script>
 
 const checkBtn=document.getElementById("checkBtn");
-const downloadBtn=document.getElementById("downloadBtn");
-const themeBtn=document.getElementById("themeBtn");
-
 const results=document.getElementById("results");
 
 const totalEl=document.getElementById("total");
@@ -248,45 +199,45 @@ const successEl=document.getElementById("success");
 const failedEl=document.getElementById("failed");
 
 const progressBar=document.getElementById("progressBar");
-const progressText=document.getElementById("progressText");
-
-const searchInput=document.getElementById("searchInput");
 
 let csvRows=[];
 const cache={};
 
-/* ================= DARK MODE ================= */
-themeBtn.onclick=()=>{
-
-document.body.classList.toggle("dark");
-
-if(document.body.classList.contains("dark")){
-themeBtn.textContent="☀ Light Mode";
-}else{
-themeBtn.textContent="🌙 Dark Mode";
-}
-
-};
-
-/* ================= FETCH ================= */
+// ================= FIXED FETCH (TIMEOUT + SAFE) =================
 async function fetchAPI(url){
+
+const controller=new AbortController();
+const timeout=setTimeout(()=>controller.abort(),6000);
+
 try{
-let r=await fetch(url);
-if(!r.ok) return null;
-return await r.json();
-}catch{
+
+const res=await fetch(url,{signal:controller.signal});
+clearTimeout(timeout);
+
+if(!res.ok) return null;
+
+return await res.json();
+
+}catch(e){
+
+clearTimeout(timeout);
 return null;
-}
+
 }
 
-/* ================= IP ================= */
+}
+
+// ================= FIXED IP ENGINE =================
 async function getIP(ip){
 
 if(cache[ip]) return cache[ip];
 
-let d=await fetchAPI(`https://ipwho.is/${ip}`);
+let d;
 
-if(d && d.success!==false){
+// API 1
+d=await fetchAPI(`https://ipwho.is/${ip}`);
+
+if(d && d.success===true){
 
 return cache[ip]={
 ip,
@@ -294,13 +245,15 @@ status:"Success",
 isp:d.connection?.isp||"Unknown",
 org:d.connection?.org||"Unknown",
 asn:d.connection?.asn||"Unknown",
-country:d.country||"",
-region:d.region||"",
-city:d.city||"",
+country:d.country||"N/A",
+region:d.region||"N/A",
+city:d.city||"N/A",
 message:"OK"
 };
+
 }
 
+// API 2
 d=await fetchAPI(`https://ipapi.co/${ip}/json/`);
 
 if(d && !d.error){
@@ -311,33 +264,57 @@ status:"Success",
 isp:d.org||"Unknown",
 org:d.org||"Unknown",
 asn:d.asn||"N/A",
-country:d.country_name||"",
-region:d.region||"",
-city:d.city||"",
+country:d.country_name||"N/A",
+region:d.region||"N/A",
+city:d.city||"N/A",
 message:"OK"
 };
+
 }
 
+// API 3
+d=await fetchAPI(`https://ipinfo.io/${ip}/json`);
+
+if(d && !d.error){
+
+return cache[ip]={
+ip,
+status:"Success",
+isp:d.org||"Unknown",
+org:d.org||"Unknown",
+asn:"N/A",
+country:d.country||"N/A",
+region:d.region||"N/A",
+city:d.city||"N/A",
+message:"OK"
+};
+
+}
+
+// FINAL SAFE FAIL (NO CRASH)
 return {
 ip,
 status:"Failed",
-isp:"N/A",
-org:"N/A",
-asn:"N/A",
-country:"",
-region:"",
-city:"",
-message:"No Data"
+isp:"Unavailable",
+org:"Unavailable",
+asn:"Unavailable",
+country:"N/A",
+region:"N/A",
+city:"N/A",
+message:"No API Response"
 };
+
 }
 
-/* ================= BATCH ================= */
+// ================= BATCH =================
 async function process(batch){
 
 return await Promise.allSettled(
 batch.map(async ip=>{
 
-if(!/^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.|$)){4}$/.test(ip)){
+const regex=/^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\.|$)){4}$/;
+
+if(!regex.test(ip)){
 return {
 ip,
 status:"Failed",
@@ -355,9 +332,10 @@ return await getIP(ip);
 
 })
 );
+
 }
 
-/* ================= MAIN ================= */
+// ================= MAIN =================
 checkBtn.onclick=async()=>{
 
 results.innerHTML="";
@@ -400,10 +378,7 @@ let d=r.status==="fulfilled"?r.value:r.value;
 
 done++;
 
-let percent=Math.round((done/ips.length)*100);
-
-progressBar.style.width=percent+"%";
-progressText.textContent=percent+"%";
+progressBar.style.width=((done/ips.length)*100)+"%";
 
 let row=document.getElementById("row-"+d.ip.replaceAll(".","-"));
 
@@ -431,12 +406,10 @@ failedEl.textContent=failed;
 
 }
 
-localStorage.setItem("ip_results",JSON.stringify(csvRows));
-
 };
 
-/* ================= CSV ================= */
-downloadBtn.onclick=()=>{
+// ================= CSV =================
+document.getElementById("downloadBtn").onclick=()=>{
 
 let csv="IP,Status,ISP,Org,ASN,Country,Region,City,Message\n";
 
@@ -452,10 +425,10 @@ a.click();
 
 };
 
-/* ================= SEARCH ================= */
-searchInput.onkeyup=()=>{
+// ================= SEARCH =================
+document.getElementById("searchInput").onkeyup=(e)=>{
 
-let v=searchInput.value.toLowerCase();
+let v=e.target.value.toLowerCase();
 
 document.querySelectorAll("#results tr").forEach(r=>{
 r.style.display=r.innerText.toLowerCase().includes(v)?"":"none";
