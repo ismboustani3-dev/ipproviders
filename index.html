@@ -259,105 +259,44 @@ let csvRows = [];
 const cache = {};
 
 function validateIP(ip){
-
     const regex =
     /^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-
     return regex.test(ip);
 }
 
 async function fetchAPI(url){
-
     try{
-
         const controller = new AbortController();
-
-        const timeout =
-            setTimeout(()=>controller.abort(),5000);
-
-        const response = await fetch(url,{
-            signal:controller.signal
-        });
-
+        const timeout = setTimeout(()=>controller.abort(),5000);
+        const response = await fetch(url,{signal:controller.signal});
         clearTimeout(timeout);
-
         return await response.json();
-
     }catch(err){
-
         return null;
     }
 }
 
 async function getIPData(ip){
 
-    if(cache[ip]){
+    if(cache[ip]) return cache[ip];
 
-        return cache[ip];
-    }
-
-    // API 1
-    let data =
-        await fetchAPI(`https://ipwho.is/${ip}`);
+    let data = await fetchAPI(`https://ipwho.is/${ip}`);
 
     if(data && data.success !== false){
-
         const result = {
-            ip:ip,
+            ip,
             status:"Success",
             provider:data.connection?.isp || "Unknown",
             country:data.country || "",
             region:data.region || "",
             city:data.city || ""
         };
-
         cache[ip] = result;
-
-        return result;
-    }
-
-    // API 2
-    data =
-        await fetchAPI(`https://ipapi.co/${ip}/json/`);
-
-    if(data && !data.error){
-
-        const result = {
-            ip:ip,
-            status:"Success",
-            provider:data.org || "Unknown",
-            country:data.country_name || "",
-            region:data.region || "",
-            city:data.city || ""
-        };
-
-        cache[ip] = result;
-
-        return result;
-    }
-
-    // API 3
-    data =
-        await fetchAPI(`https://ipinfo.io/${ip}/json`);
-
-    if(data){
-
-        const result = {
-            ip:ip,
-            status:"Success",
-            provider:data.org || "Unknown",
-            country:data.country || "",
-            region:data.region || "",
-            city:data.city || ""
-        };
-
-        cache[ip] = result;
-
         return result;
     }
 
     return {
-        ip:ip,
+        ip,
         status:"Failed",
         provider:"Fetch Error",
         country:"",
@@ -367,250 +306,98 @@ async function getIPData(ip){
 }
 
 async function processBatch(batch){
-
     return await Promise.allSettled(
-
         batch.map(async ip=>{
-
             if(!validateIP(ip)){
-
-                return {
-                    ip:ip,
-                    status:"Failed",
-                    provider:"Invalid Format",
-                    country:"",
-                    region:"",
-                    city:""
-                };
+                return {ip,status:"Failed",provider:"Invalid",country:"",region:"",city:""};
             }
-
             return await getIPData(ip);
-
         })
-
     );
 }
 
 checkBtn.addEventListener("click", async ()=>{
 
     results.innerHTML = "";
-    providersDiv.innerHTML = "";
-    regionsDiv.innerHTML = "";
-
     csvRows = [];
 
-    const ips =
-        document.getElementById("ipInput")
-        .value
-        .split("\n")
-        .map(ip=>ip.trim())
-        .filter(ip=>ip !== "");
+    const ips = document.getElementById("ipInput")
+        .value.split("\n").map(x=>x.trim()).filter(Boolean);
 
     totalEl.textContent = ips.length;
 
     let success = 0;
     let failed = 0;
-
     let processed = 0;
 
     const providers = {};
     const regions = {};
 
-    // loading rows
-    ips.forEach(ip=>{
-
-        const row =
-            document.createElement("tr");
-
-        row.id =
-            "row-" + ip.replaceAll(".","-");
-
-        row.innerHTML = `
-            <td>${ip}</td>
-            <td class="loading">Checking...</td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-        `;
-
-        results.appendChild(row);
-
-    });
-
-    // BATCH SIZE
     const batchSize = 30;
 
     for(let i=0;i<ips.length;i+=batchSize){
 
-        const batch =
-            ips.slice(i,i+batchSize);
+        const batch = ips.slice(i,i+batchSize);
+        const res = await processBatch(batch);
 
-        const batchResults =
-            await processBatch(batch);
+        res.forEach(r=>{
 
-        batchResults.forEach(result=>{
-
-            const data =
-                result.status === "fulfilled"
-                ? result.value
-                : {
-                    ip:"Unknown",
-                    status:"Failed",
-                    provider:"Promise Error",
-                    country:"",
-                    region:"",
-                    city:""
-                };
+            const d = r.status === "fulfilled" ? r.value : null;
+            if(!d) return;
 
             processed++;
+            progressBar.style.width = (processed/ips.length)*100 + "%";
 
-            const progress =
-                (processed / ips.length) * 100;
-
-            progressBar.style.width =
-                progress + "%";
-
-            const row =
-                document.getElementById(
-                    "row-" +
-                    data.ip.replaceAll(".","-")
-                );
-
-            if(data.status === "Success"){
-
+            if(d.status === "Success"){
                 success++;
-
-                providers[data.provider] =
-                    (providers[data.provider] || 0) + 1;
-
-                if(data.region){
-
-                    regions[data.region] =
-                        (regions[data.region] || 0) + 1;
-                }
-
             }else{
-
                 failed++;
             }
 
+            const row = document.createElement("tr");
             row.innerHTML = `
-                <td>${data.ip}</td>
-
-                <td class="${
-                    data.status === "Success"
-                    ? "success"
-                    : "failed"
-                }">
-
-                    ${data.status}
-
-                </td>
-
-                <td>${data.provider}</td>
-                <td>${data.country}</td>
-                <td>${data.region}</td>
-                <td>${data.city}</td>
+                <td>${d.ip}</td>
+                <td class="${d.status==='Success'?'success':'failed'}">${d.status}</td>
+                <td>${d.provider}</td>
+                <td>${d.country}</td>
+                <td>${d.region}</td>
+                <td>${d.city}</td>
             `;
+            results.appendChild(row);
 
-            csvRows.push(data);
-
+            csvRows.push(d);
         });
 
         successEl.textContent = success;
         failedEl.textContent = failed;
     }
-
-    // providers
-    for(let provider in providers){
-
-        const div =
-            document.createElement("div");
-
-        div.className = "badge";
-
-        div.innerText =
-            provider + ": " + providers[provider];
-
-        providersDiv.appendChild(div);
-    }
-
-    // regions
-    for(let region in regions){
-
-        const div =
-            document.createElement("div");
-
-        div.className = "badge";
-
-        div.innerText =
-            region + ": " + regions[region];
-
-        regionsDiv.appendChild(div);
-    }
-
 });
 
-document.getElementById("downloadBtn")
-.addEventListener("click", ()=>{
+document.getElementById("downloadBtn").addEventListener("click", ()=>{
 
-    if(csvRows.length === 0){
+    let csv = "IP,Status,Provider,Country,Region,City\n";
 
-        alert("No Results");
-        return;
-    }
-
-    let csv =
-        "IP,Status,Provider,Country,Region,City\n";
-
-    csvRows.forEach(row=>{
-
-        csv +=
-        `${row.ip},${row.status},${row.provider},${row.country},${row.region},${row.city}\n`;
-
+    csvRows.forEach(r=>{
+        csv += `${r.ip},${r.status},${r.provider},${r.country},${r.region},${r.city}\n`;
     });
 
-    const blob =
-        new Blob([csv],{
-            type:"text/csv"
-        });
+    const blob = new Blob([csv],{type:"text/csv"});
+    const url = URL.createObjectURL(blob);
 
-    const url =
-        URL.createObjectURL(blob);
-
-    const a =
-        document.createElement("a");
-
+    const a = document.createElement("a");
     a.href = url;
-
-    a.download =
-        "ip_results.csv";
-
+    a.download = "ip_results.csv";
     a.click();
 
     URL.revokeObjectURL(url);
-
 });
 
 searchInput.addEventListener("keyup", ()=>{
 
-    const value =
-        searchInput.value.toLowerCase();
+    const v = searchInput.value.toLowerCase();
 
-    const rows =
-        document.querySelectorAll("#results tr");
-
-    rows.forEach(row=>{
-
-        const text =
-            row.innerText.toLowerCase();
-
-        row.style.display =
-            text.includes(value)
-            ? ""
-            : "none";
-
+    document.querySelectorAll("#results tr").forEach(r=>{
+        r.style.display = r.innerText.toLowerCase().includes(v) ? "" : "none";
     });
 
 });
@@ -619,10 +406,3 @@ searchInput.addEventListener("keyup", ()=>{
 
 </body>
 </html>
-```
-
-
-. Save Results Automatically 
-. Dark Mode 🌙 
-. Geo Map 🌍 
-. Duplicate IP Detection
